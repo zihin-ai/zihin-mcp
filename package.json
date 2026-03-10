@@ -6,6 +6,9 @@
   "bin": {
     "zihin-mcp": "./bin/zihin-mcp.js"
   },
+  "scripts": {
+    "test": "node --test test/proxy.test.js"
+  },
   "main": "src/index.js",
   "engines": {
     "node": ">=18"

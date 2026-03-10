@@ -1,5 +1,9 @@
 .github/
 node_modules/
+test/
+.secrets/
 .env
 .DS_Store
 *.log
+CLAUDE.md
+CHANGELOG.md
