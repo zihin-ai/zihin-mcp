@@ -4,7 +4,7 @@
   "description": "Zihin MCP Server — stdio-to-HTTP proxy para Claude Desktop, Cursor, Claude Code e outros clientes MCP",
   "type": "module",
   "bin": {
-    "zihin-mcp": "./bin/zihin-mcp.js"
+    "zihin-mcp": "bin/zihin-mcp.js"
   },
   "scripts": {
     "test": "node --test test/proxy.test.js"
@@ -32,7 +32,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zihin-ai/zihin-mcp.git"
+    "url": "git+https://github.com/zihin-ai/zihin-mcp.git"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
