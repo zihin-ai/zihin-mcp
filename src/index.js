@@ -100,9 +100,9 @@ export async function startProxy() {
     remoteClient.listPrompts(),
   ]);
 
-  const remoteTools = toolsResult.status === 'fulfilled' ? toolsResult.value.tools : [];
-  const remoteResources = resourcesResult.status === 'fulfilled' ? resourcesResult.value.resources : [];
-  const remotePrompts = promptsResult.status === 'fulfilled' ? promptsResult.value.prompts : [];
+  let remoteTools = toolsResult.status === 'fulfilled' ? toolsResult.value.tools : [];
+  let remoteResources = resourcesResult.status === 'fulfilled' ? resourcesResult.value.resources : [];
+  let remotePrompts = promptsResult.status === 'fulfilled' ? promptsResult.value.prompts : [];
 
   log(`Descoberto: ${remoteTools.length} tools, ${remoteResources.length} resources, ${remotePrompts.length} prompts`);
   log('');
@@ -174,6 +174,41 @@ export async function startProxy() {
       }
     });
   }
+
+  // Discovery dinâmico: escutar notificações de mudança do server remoto
+  // Quando o server atualiza tools/resources/prompts, o proxy re-fetcha a lista
+  remoteClient.setNotificationHandler({ method: 'notifications/tools/list_changed' }, async () => {
+    log('Notificação recebida: tools atualizadas no server remoto. Re-descobrindo...');
+    try {
+      const result = await remoteClient.listTools();
+      remoteTools = result.tools;
+      log(`Tools atualizadas: ${remoteTools.length} tools`);
+    } catch (error) {
+      log(`Erro ao re-descobrir tools: ${error.message}`);
+    }
+  });
+
+  remoteClient.setNotificationHandler({ method: 'notifications/resources/list_changed' }, async () => {
+    log('Notificação recebida: resources atualizados no server remoto. Re-descobrindo...');
+    try {
+      const result = await remoteClient.listResources();
+      remoteResources = result.resources;
+      log(`Resources atualizados: ${remoteResources.length} resources`);
+    } catch (error) {
+      log(`Erro ao re-descobrir resources: ${error.message}`);
+    }
+  });
+
+  remoteClient.setNotificationHandler({ method: 'notifications/prompts/list_changed' }, async () => {
+    log('Notificação recebida: prompts atualizados no server remoto. Re-descobrindo...');
+    try {
+      const result = await remoteClient.listPrompts();
+      remotePrompts = result.prompts;
+      log(`Prompts atualizados: ${remotePrompts.length} prompts`);
+    } catch (error) {
+      log(`Erro ao re-descobrir prompts: ${error.message}`);
+    }
+  });
 
   // Iniciar stdio transport
   log('Iniciando stdio transport...');

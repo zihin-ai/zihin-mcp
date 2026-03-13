@@ -185,7 +185,7 @@ describe('proxy stdio ↔ HTTP', () => {
   // ── Tools ──
 
   describe('tools', () => {
-    it('tools/list deve retornar 69 tools', async () => {
+    it('tools/list deve retornar tools do server', async () => {
       const res = await request('tools/list', {});
       assert.ok(res.result, 'deve ter result');
       assert.ok(Array.isArray(res.result.tools), 'tools deve ser array');

@@ -206,6 +206,10 @@ $env:ZIHIN_API_KEY="zhn_live_xxx"; npx @zihin/mcp-server
 - Reinicie o cliente MCP apos alterar a configuracao
 - Claude Desktop: verifique logs em `~/Library/Logs/Claude/mcp*.log` (macOS) ou `%APPDATA%\Claude\logs\mcp*.log` (Windows)
 
+## Limitacoes
+
+- **Streaming**: A tool `chat_with_agent` retorna a resposta completa de uma vez (sincrono). O protocolo MCP define que tools retornam um `CallToolResult` completo — nao ha suporte a streaming progressivo. Para feedback em tempo real durante execucao do agente, use o endpoint REST SSE (`POST /api/v2/agents/:agent_id/stream`).
+
 ## Requisitos
 
 - Node.js >= 18

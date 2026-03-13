@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 (2026-03-13)
+
+### Funcionalidades
+
+- Discovery dinâmico: proxy escuta notificações `tools/list_changed`, `resources/list_changed`, `prompts/list_changed` do server remoto e atualiza listas automaticamente (sem restart)
+
+### Compatibilidade
+
+- Compatível com MCP Server v2.1.0 (72 tools, 3 resources, 3 prompts)
+- Sem breaking changes — atualização transparente
+
+---
+
 ## 1.0.0 (2026-03-09)
 
 Lancamento inicial do `@zihin/mcp-server`.
