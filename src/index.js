@@ -21,9 +21,12 @@ import {
   ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  ToolListChangedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+  PromptListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
@@ -177,7 +180,7 @@ export async function startProxy() {
 
   // Discovery dinâmico: escutar notificações de mudança do server remoto
   // Quando o server atualiza tools/resources/prompts, o proxy re-fetcha a lista
-  remoteClient.setNotificationHandler({ method: 'notifications/tools/list_changed' }, async () => {
+  remoteClient.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
     log('Notificação recebida: tools atualizadas no server remoto. Re-descobrindo...');
     try {
       const result = await remoteClient.listTools();
@@ -188,7 +191,7 @@ export async function startProxy() {
     }
   });
 
-  remoteClient.setNotificationHandler({ method: 'notifications/resources/list_changed' }, async () => {
+  remoteClient.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
     log('Notificação recebida: resources atualizados no server remoto. Re-descobrindo...');
     try {
       const result = await remoteClient.listResources();
@@ -199,7 +202,7 @@ export async function startProxy() {
     }
   });
 
-  remoteClient.setNotificationHandler({ method: 'notifications/prompts/list_changed' }, async () => {
+  remoteClient.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
     log('Notificação recebida: prompts atualizados no server remoto. Re-descobrindo...');
     try {
       const result = await remoteClient.listPrompts();
