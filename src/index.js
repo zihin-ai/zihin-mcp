@@ -26,9 +26,13 @@ import {
   PromptListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
+
+const KEEPALIVE_INTERVAL_MS = 30_000;
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
 
 /**
  * Inicia o proxy stdio ↔ HTTP.
@@ -62,26 +66,164 @@ export async function startProxy() {
   log(`Server:  ${mcpUrl}`);
   log('');
 
-  // Conectar ao server remoto via HTTP
-  log('Conectando ao Zihin MCP Server...');
+  // Estado mutável — atualizado em cada (re)conexão
+  let remoteTools = [];
+  let remoteResources = [];
+  let remotePrompts = [];
+  let reconnecting = false;
+  let keepaliveTimer = null;
 
   const remoteClient = new Client(
     { name: 'zihin-mcp-proxy', version: VERSION },
   );
 
-  const httpTransport = new StreamableHTTPClientTransport(
-    new URL(mcpUrl),
-    {
-      requestInit: {
-        headers: {
-          'X-Api-Key': apiKey,
+  // --- Conexão e discovery ---
+
+  async function connectAndDiscover() {
+    const httpTransport = new StreamableHTTPClientTransport(
+      new URL(mcpUrl),
+      {
+        requestInit: {
+          headers: { 'X-Api-Key': apiKey },
+        },
+        reconnectionOptions: {
+          maxReconnectionDelay: RECONNECT_MAX_MS,
+          initialReconnectionDelay: RECONNECT_BASE_MS,
+          reconnectionDelayGrowFactor: 2,
+          maxRetries: 5,
         },
       },
-    },
-  );
+    );
+
+    httpTransport.onclose = () => {
+      log('Conexão HTTP fechada pelo server.');
+      reconnect();
+    };
+
+    httpTransport.onerror = (error) => {
+      log(`Erro no transport HTTP: ${error.message}`);
+      // onclose será chamado em seguida pelo SDK; reconnect acontece lá
+    };
+
+    await remoteClient.connect(httpTransport);
+
+    // Descobrir capabilities
+    const [toolsResult, resourcesResult, promptsResult] = await Promise.allSettled([
+      remoteClient.listTools(),
+      remoteClient.listResources(),
+      remoteClient.listPrompts(),
+    ]);
+
+    remoteTools = toolsResult.status === 'fulfilled' ? toolsResult.value.tools : [];
+    remoteResources = resourcesResult.status === 'fulfilled' ? resourcesResult.value.resources : [];
+    remotePrompts = promptsResult.status === 'fulfilled' ? promptsResult.value.prompts : [];
+
+    log(`Descoberto: ${remoteTools.length} tools, ${remoteResources.length} resources, ${remotePrompts.length} prompts`);
+
+    // Notification handlers para discovery dinâmico
+    remoteClient.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+      log('Notificação: tools atualizadas. Re-descobrindo...');
+      try {
+        const result = await remoteClient.listTools();
+        remoteTools = result.tools;
+        log(`Tools atualizadas: ${remoteTools.length} tools`);
+      } catch (error) {
+        log(`Erro ao re-descobrir tools: ${error.message}`);
+      }
+    });
+
+    remoteClient.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+      log('Notificação: resources atualizados. Re-descobrindo...');
+      try {
+        const result = await remoteClient.listResources();
+        remoteResources = result.resources;
+        log(`Resources atualizados: ${remoteResources.length} resources`);
+      } catch (error) {
+        log(`Erro ao re-descobrir resources: ${error.message}`);
+      }
+    });
+
+    remoteClient.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+      log('Notificação: prompts atualizados. Re-descobrindo...');
+      try {
+        const result = await remoteClient.listPrompts();
+        remotePrompts = result.prompts;
+        log(`Prompts atualizados: ${remotePrompts.length} prompts`);
+      } catch (error) {
+        log(`Erro ao re-descobrir prompts: ${error.message}`);
+      }
+    });
+
+    // Iniciar keepalive
+    startKeepalive();
+  }
+
+  // --- Keepalive ---
+
+  function startKeepalive() {
+    stopKeepalive();
+    keepaliveTimer = setInterval(async () => {
+      try {
+        await remoteClient.ping();
+      } catch {
+        log('Keepalive falhou — reconectando...');
+        reconnect();
+      }
+    }, KEEPALIVE_INTERVAL_MS);
+  }
+
+  function stopKeepalive() {
+    if (keepaliveTimer) {
+      clearInterval(keepaliveTimer);
+      keepaliveTimer = null;
+    }
+  }
+
+  // --- Auto-reconnect ---
+
+  async function reconnect(attempt = 0) {
+    if (reconnecting) return;
+    reconnecting = true;
+    stopKeepalive();
+
+    const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, attempt), RECONNECT_MAX_MS);
+    log(`Reconectando em ${delay / 1000}s (tentativa ${attempt + 1})...`);
+
+    await sleep(delay);
+
+    try {
+      await remoteClient.close().catch(() => {});
+      await connectAndDiscover();
+      log('Reconectado com sucesso!');
+      reconnecting = false;
+    } catch (error) {
+      log(`Falha ao reconectar: ${error.message}`);
+      reconnecting = false;
+      reconnect(attempt + 1);
+    }
+  }
+
+  // --- Wrapper com retry para operações remotas ---
+
+  async function withRetry(operation) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (isConnectionError(error)) {
+        log(`Erro de conexão detectado. Reconectando...`);
+        await reconnect();
+        return await operation();
+      }
+      throw error;
+    }
+  }
+
+  // --- Conexão inicial ---
+
+  log('Conectando ao Zihin MCP Server...');
 
   try {
-    await remoteClient.connect(httpTransport);
+    await connectAndDiscover();
   } catch (error) {
     log(`ERRO: Falha ao conectar ao server: ${error.message}`);
 
@@ -94,24 +236,9 @@ export async function startProxy() {
     process.exit(1);
   }
 
-  log('Conectado! Descobrindo capabilities...');
-
-  // Descobrir tools, resources e prompts do server remoto
-  const [toolsResult, resourcesResult, promptsResult] = await Promise.allSettled([
-    remoteClient.listTools(),
-    remoteClient.listResources(),
-    remoteClient.listPrompts(),
-  ]);
-
-  let remoteTools = toolsResult.status === 'fulfilled' ? toolsResult.value.tools : [];
-  let remoteResources = resourcesResult.status === 'fulfilled' ? resourcesResult.value.resources : [];
-  let remotePrompts = promptsResult.status === 'fulfilled' ? promptsResult.value.prompts : [];
-
-  log(`Descoberto: ${remoteTools.length} tools, ${remoteResources.length} resources, ${remotePrompts.length} prompts`);
   log('');
 
-  // Criar server local usando a API de baixo nível (Server, não McpServer)
-  // para poder registrar handlers com JSON Schema direto do server remoto
+  // Criar server local
   const capabilities = { tools: {} };
   if (remoteResources.length > 0) capabilities.resources = {};
   if (remotePrompts.length > 0) capabilities.prompts = {};
@@ -121,17 +248,16 @@ export async function startProxy() {
     { capabilities },
   );
 
-  // Registrar handler de listTools — retorna a lista do server remoto
+  // Handler: listTools
   localServer.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: remoteTools,
   }));
 
-  // Registrar handler de callTool — proxy para o server remoto
+  // Handler: callTool (com retry)
   localServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
-      const result = await remoteClient.callTool({ name, arguments: args });
-      return result;
+      return await withRetry(() => remoteClient.callTool({ name, arguments: args }));
     } catch (error) {
       return {
         content: [{ type: 'text', text: `Erro ao executar tool "${name}": ${error.message}` }],
@@ -140,7 +266,7 @@ export async function startProxy() {
     }
   });
 
-  // Registrar handlers de resources (se disponíveis)
+  // Handler: listResources
   if (remoteResources.length > 0) {
     localServer.setRequestHandler(ListResourcesRequestSchema, async () => ({
       resources: remoteResources,
@@ -149,8 +275,7 @@ export async function startProxy() {
     localServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       const { uri } = request.params;
       try {
-        const result = await remoteClient.readResource({ uri });
-        return result;
+        return await withRetry(() => remoteClient.readResource({ uri }));
       } catch (error) {
         return {
           contents: [{ uri, text: `Erro ao ler resource "${uri}": ${error.message}` }],
@@ -159,7 +284,7 @@ export async function startProxy() {
     });
   }
 
-  // Registrar handlers de prompts (se disponíveis)
+  // Handler: prompts
   if (remotePrompts.length > 0) {
     localServer.setRequestHandler(ListPromptsRequestSchema, async () => ({
       prompts: remotePrompts,
@@ -168,8 +293,7 @@ export async function startProxy() {
     localServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
       try {
-        const result = await remoteClient.getPrompt({ name, arguments: args });
-        return result;
+        return await withRetry(() => remoteClient.getPrompt({ name, arguments: args }));
       } catch (error) {
         return {
           messages: [{ role: 'user', content: { type: 'text', text: `Erro ao obter prompt "${name}": ${error.message}` } }],
@@ -177,41 +301,6 @@ export async function startProxy() {
       }
     });
   }
-
-  // Discovery dinâmico: escutar notificações de mudança do server remoto
-  // Quando o server atualiza tools/resources/prompts, o proxy re-fetcha a lista
-  remoteClient.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
-    log('Notificação recebida: tools atualizadas no server remoto. Re-descobrindo...');
-    try {
-      const result = await remoteClient.listTools();
-      remoteTools = result.tools;
-      log(`Tools atualizadas: ${remoteTools.length} tools`);
-    } catch (error) {
-      log(`Erro ao re-descobrir tools: ${error.message}`);
-    }
-  });
-
-  remoteClient.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
-    log('Notificação recebida: resources atualizados no server remoto. Re-descobrindo...');
-    try {
-      const result = await remoteClient.listResources();
-      remoteResources = result.resources;
-      log(`Resources atualizados: ${remoteResources.length} resources`);
-    } catch (error) {
-      log(`Erro ao re-descobrir resources: ${error.message}`);
-    }
-  });
-
-  remoteClient.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
-    log('Notificação recebida: prompts atualizados no server remoto. Re-descobrindo...');
-    try {
-      const result = await remoteClient.listPrompts();
-      remotePrompts = result.prompts;
-      log(`Prompts atualizados: ${remotePrompts.length} prompts`);
-    } catch (error) {
-      log(`Erro ao re-descobrir prompts: ${error.message}`);
-    }
-  });
 
   // Iniciar stdio transport
   log('Iniciando stdio transport...');
@@ -225,6 +314,7 @@ export async function startProxy() {
   // Cleanup ao encerrar
   const cleanup = async () => {
     log('Encerrando...');
+    stopKeepalive();
     try { await remoteClient.close(); } catch { /* ignore */ }
     try { await localServer.close(); } catch { /* ignore */ }
     process.exit(0);
@@ -232,6 +322,33 @@ export async function startProxy() {
 
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
+}
+
+/**
+ * Verifica se o erro indica problema de conexão/sessão.
+ */
+function isConnectionError(error) {
+  const msg = (error.message || '').toLowerCase();
+  const code = error.code || '';
+  return (
+    msg.includes('fetch failed') ||
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound') ||
+    msg.includes('econnreset') ||
+    msg.includes('socket hang up') ||
+    msg.includes('network') ||
+    msg.includes('abort') ||
+    msg.includes('session') ||
+    msg.includes('404') ||
+    code === 'ECONNREFUSED' ||
+    code === 'ENOTFOUND' ||
+    code === 'ECONNRESET' ||
+    code === 'UND_ERR_CONNECT_TIMEOUT'
+  );
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**

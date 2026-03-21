@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.0 (2026-03-21)
+
+### Correções
+
+- Auto-reconnect com backoff exponencial (1s → 30s) após queda de conexão por idle, deploy ou instabilidade de rede
+- Keepalive via `ping()` a cada 30s para detectar conexão morta proativamente
+- Retry transparente em `callTool`, `readResource` e `getPrompt` em erros de conexão
+- Error handlers (`onerror`/`onclose`) no transport HTTP disparam reconnect automático
+
+### Compatibilidade
+
+- Compatível com MCP Server v2.2.0 (75 tools, 3 resources, 3 prompts)
+- 3 novas tools: `list_agent_memory`, `delete_agent_memory`, `get_scheduler_status`
+- Sem breaking changes — atualização transparente
+
+---
+
 ## 1.1.0 (2026-03-13)
 
 ### Funcionalidades
