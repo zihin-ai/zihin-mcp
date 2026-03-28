@@ -201,6 +201,10 @@ $env:ZIHIN_API_KEY="zhn_live_xxx"; npx @zihin/mcp-server
 - Verifique se a API Key e valida e esta ativa
 - Se usar URL customizada, verifique `ZIHIN_MCP_URL`
 
+### "ERRO FATAL: API Key invalida ou revogada"
+
+A API Key foi revogada ou desativada no painel Zihin. Gere uma nova key e atualize a configuracao do cliente MCP. Reinicie o processo apos a troca.
+
 ### Tools nao aparecem no cliente
 
 - Reinicie o cliente MCP apos alterar a configuracao

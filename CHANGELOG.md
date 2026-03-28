@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0 (2026-03-28)
+
+### Funcionalidades
+
+- **Identificação de tenant no boot**: chama `whoami` após conexão e exibe `✓ Tenant: "Nome" (role: admin, plan: basic)` no stderr — elimina ambiguidade ao operar com múltiplas tenants
+- **Smart keepalive**: substituído `ping()` por `listTools()` a cada 30s — detecta tools novas/removidas e valida auth continuamente
+- **Detecção de auth error**: erros 401/403 agora são tratados como fatais (`exit(1)`) com mensagem clara, ao invés de reconectar infinitamente com key revogada
+- **Limite de reconexão**: máximo de 10 tentativas antes de encerrar (`MAX_RECONNECT_ATTEMPTS`)
+- `withRetry` não retenta operações em erros de autenticação
+
+### Compatibilidade
+
+- Compatível com MCP Server v2.3.0 (76 tools, 3 resources, 3 prompts)
+- +1 tool: `whoami` (consumer, todos os roles) — identificação de tenant/role/plano
+- Sem breaking changes — atualização transparente
+- Graceful degradation: se o server não tem `whoami` (< v2.3.0), o proxy funciona normalmente sem identificação
+
+---
+
 ## 1.2.0 (2026-03-21)
 
 ### Correções

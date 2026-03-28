@@ -391,7 +391,7 @@ describe('proxy stdio ↔ HTTP', () => {
       });
 
       assert.equal(res.result.serverInfo.name, 'zihin-mcp-proxy');
-      assert.equal(res.result.serverInfo.version, '1.2.0');
+      assert.equal(res.result.serverInfo.version, '1.3.0');
     });
 
     it('capabilities deve declarar tools, resources e prompts', async () => {

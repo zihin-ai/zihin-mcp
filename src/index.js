@@ -26,13 +26,14 @@ import {
   PromptListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
 const KEEPALIVE_INTERVAL_MS = 30_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
+const MAX_RECONNECT_ATTEMPTS = 10;
 
 /**
  * Inicia o proxy stdio ↔ HTTP.
@@ -120,6 +121,9 @@ export async function startProxy() {
 
     log(`Descoberto: ${remoteTools.length} tools, ${remoteResources.length} resources, ${remotePrompts.length} prompts`);
 
+    // Identificar tenant via whoami (best-effort)
+    await identifyTenant();
+
     // Notification handlers para discovery dinâmico
     remoteClient.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
       log('Notificação: tools atualizadas. Re-descobrindo...');
@@ -158,14 +162,52 @@ export async function startProxy() {
     startKeepalive();
   }
 
-  // --- Keepalive ---
+  // --- Identificação de tenant (Fix 2) ---
+
+  async function identifyTenant() {
+    try {
+      const hasWhoami = remoteTools.some(t => t.name === 'whoami');
+      if (!hasWhoami) {
+        log('(whoami não disponível — server anterior a v2.3.0)');
+        return;
+      }
+
+      const result = await remoteClient.callTool({ name: 'whoami', arguments: {} });
+      const text = result?.content?.[0]?.text;
+      if (text) {
+        const info = JSON.parse(text);
+        if (info.success) {
+          log('');
+          log(`✓ Tenant:  ${info.tenant_name || info.tenant_id}`);
+          log(`  Role:    ${info.role}`);
+          if (info.plan) log(`  Plano:   ${info.plan}`);
+        }
+      }
+    } catch {
+      // best-effort — não bloqueia o boot
+    }
+  }
+
+  // --- Smart keepalive (Fix 4) ---
 
   function startKeepalive() {
     stopKeepalive();
     keepaliveTimer = setInterval(async () => {
       try {
-        await remoteClient.ping();
-      } catch {
+        // Discovery contínuo: detecta tools novas/removidas + valida auth
+        const result = await remoteClient.listTools();
+        const newCount = result.tools.length;
+        if (newCount !== remoteTools.length) {
+          log(`Keepalive: tools atualizadas (${remoteTools.length} → ${newCount})`);
+          remoteTools = result.tools;
+        }
+      } catch (error) {
+        if (isAuthError(error)) {
+          log('');
+          log('ERRO FATAL: API Key inválida ou revogada.');
+          log('Atualize ZIHIN_API_KEY e reinicie o processo.');
+          process.exit(1);
+        }
         log('Keepalive falhou — reconectando...');
         reconnect();
       }
@@ -186,8 +228,13 @@ export async function startProxy() {
     reconnecting = true;
     stopKeepalive();
 
+    if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+      log(`Máximo de tentativas de reconexão atingido (${MAX_RECONNECT_ATTEMPTS}). Encerrando.`);
+      process.exit(1);
+    }
+
     const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, attempt), RECONNECT_MAX_MS);
-    log(`Reconectando em ${delay / 1000}s (tentativa ${attempt + 1})...`);
+    log(`Reconectando em ${delay / 1000}s (tentativa ${attempt + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
 
     await sleep(delay);
 
@@ -197,8 +244,17 @@ export async function startProxy() {
       log('Reconectado com sucesso!');
       reconnecting = false;
     } catch (error) {
-      log(`Falha ao reconectar: ${error.message}`);
       reconnecting = false;
+
+      // Fix 3: Auth error = fatal, não reconectar
+      if (isAuthError(error)) {
+        log('');
+        log('ERRO FATAL: API Key inválida ou revogada.');
+        log('Atualize ZIHIN_API_KEY e reinicie o processo.');
+        process.exit(1);
+      }
+
+      log(`Falha ao reconectar: ${error.message}`);
       reconnect(attempt + 1);
     }
   }
@@ -209,6 +265,7 @@ export async function startProxy() {
     try {
       return await operation();
     } catch (error) {
+      if (isAuthError(error)) throw error; // Não retry em auth error
       if (isConnectionError(error)) {
         log(`Erro de conexão detectado. Reconectando...`);
         await reconnect();
@@ -227,7 +284,7 @@ export async function startProxy() {
   } catch (error) {
     log(`ERRO: Falha ao conectar ao server: ${error.message}`);
 
-    if (error.message.includes('401') || error.message.includes('unauthorized')) {
+    if (isAuthError(error)) {
       log('Verifique se a API Key é válida e está ativa.');
     } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
       log('Verifique sua conexão com a internet e a URL do server.');
@@ -325,9 +382,26 @@ export async function startProxy() {
 }
 
 /**
- * Verifica se o erro indica problema de conexão/sessão.
+ * Verifica se o erro indica autenticação inválida (401/403).
+ * Esses erros são fatais — não faz sentido reconectar com a mesma key.
+ */
+function isAuthError(error) {
+  const msg = (error.message || '').toLowerCase();
+  return (
+    msg.includes('401') ||
+    msg.includes('403') ||
+    msg.includes('unauthorized') ||
+    msg.includes('forbidden') ||
+    msg.includes('invalid api key') ||
+    msg.includes('api key')
+  );
+}
+
+/**
+ * Verifica se o erro indica problema de conexão/sessão (recuperável).
  */
 function isConnectionError(error) {
+  if (isAuthError(error)) return false;
   const msg = (error.message || '').toLowerCase();
   const code = error.code || '';
   return (
