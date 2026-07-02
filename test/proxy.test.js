@@ -28,9 +28,9 @@ if (!API_KEY) {
 /**
  * Envia uma JSON-RPC request via stdin do processo proxy e aguarda a response.
  */
-function sendRequest(proc, method, params = {}, id = 1) {
+function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Timeout aguardando resposta de "${method}"`)), 15000);
+    const timeout = setTimeout(() => reject(new Error(`Timeout aguardando resposta de "${method}"`)), timeoutMs);
 
     let buffer = '';
 
@@ -153,8 +153,8 @@ describe('proxy stdio ↔ HTTP', () => {
   let requestId = 0;
 
   /** Envia request com ID auto-incrementado. */
-  function request(method, params = {}) {
-    return sendRequest(proc, method, params, ++requestId);
+  function request(method, params = {}, timeoutMs = 15000) {
+    return sendRequest(proc, method, params, ++requestId, timeoutMs);
   }
 
   before(async () => {
@@ -229,14 +229,15 @@ describe('proxy stdio ↔ HTTP', () => {
 
       const agentId = agentsData.agents[0].id;
 
-      // Mensagem 1 — nova sessão
+      // Mensagem 1 — nova sessão. Turno de agente real (LLM + tools) pode
+      // passar de 15s em prod — timeout folgado evita flake no CI.
       const r1 = await request('tools/call', {
         name: 'chat_with_agent',
         arguments: {
           agent_id: agentId,
           message: 'Responda apenas: "ok"',
         },
-      });
+      }, 90_000);
 
       assert.ok(r1.result, 'deve ter result');
       assert.ok(!r1.result.isError, 'não deve ter erro');
@@ -252,7 +253,7 @@ describe('proxy stdio ↔ HTTP', () => {
           message: 'Qual foi minha mensagem anterior?',
           session_id: d1.session_id,
         },
-      });
+      }, 90_000);
 
       assert.ok(r2.result, 'deve ter result');
       const d2 = JSON.parse(r2.result.content[0].text);
