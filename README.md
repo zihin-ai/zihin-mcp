@@ -143,15 +143,46 @@ O pacote atua como um **proxy transparente** entre o cliente MCP local (via stdi
 - Auth, RBAC e tenant isolation sao enforced server-side via API Key
 - O role (admin/editor/member) e determinado pela API Key
 
+## Skills — deixe seu IDE especialista no Zihin
+
+O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*` — todo client MCP ja as recebe automaticamente, sem instalar nada.
+
+Para instalar tambem no formato NATIVO do seu client (ativacao automatica por contexto):
+
+```bash
+# Claude Code (Agent Skills em .claude/skills/)
+ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server install-skills --client claude
+
+# Cursor (.cursor/rules/*.mdc) | Windsurf (.windsurf/rules/) | Codex (AGENTS.md + .zihin/skills/)
+ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server install-skills --client cursor
+ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server install-skills --client all
+
+# Offline (usa as skills empacotadas no npm)
+npx @zihin/mcp-server install-skills --client claude --bundled
+```
+
+Opcoes: `--client claude|cursor|windsurf|codex|all` · `--dir <raiz-do-projeto>` · `--global` (so claude, instala em `~/.claude/skills`) · `--bundled` (offline).
+
+As skills sao buscadas do server vivo (sempre atualizadas). No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
+
+### Plugin Claude Code (MCP + skills em um comando)
+
+```bash
+claude plugin marketplace add zihin-ai/zihin-mcp
+claude plugin install zihin@zihin
+```
+
+O plugin instala o MCP server (via este pacote) + as 6 skills. Requer `ZIHIN_API_KEY` exportada no ambiente.
+
 ## Capabilities
 
 As capabilities disponiveis dependem do role da API Key, controlado server-side:
 
 | Role | Tools | Resources | Prompts |
 |------|-------|-----------|---------|
-| `admin` | Todas | 3 | 3 |
-| `editor` | Todas (write guardado) | 3 | 3 |
-| `member` | Subset (consumer) | - | - |
+| `admin` | Todas (96) | 19 | 3 |
+| `editor` | Leitura (52 — writes nao sao listadas) | 19 | 3 |
+| `member` | Subset consumer (5) | - | - |
 
 O numero exato de tools pode variar conforme o server evolui.
 
@@ -162,6 +193,8 @@ O numero exato de tools pode variar conforme o server evolui.
 | `zihin://agents` | Lista de agentes do tenant |
 | `zihin://models` | Catalogo de modelos LLM disponiveis |
 | `zihin://schema-templates` | Templates de schema para configuracao |
+| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
+| `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
 
 ### Prompts disponiveis
 

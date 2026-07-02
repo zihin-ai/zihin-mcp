@@ -1,0 +1,14 @@
+{
+  "name": "zihin",
+  "owner": {
+    "name": "Zihin",
+    "url": "https://zihin.ai"
+  },
+  "plugins": [
+    {
+      "name": "zihin",
+      "source": "./plugin",
+      "description": "Zihin Agent Builder — MCP server (96 tools para gerenciar agentes de IA) + 6 skills especialistas (criar agente, tools, triggers, diagnóstico, governança). Requer ZIHIN_API_KEY no ambiente."
+    }
+  ]
+}

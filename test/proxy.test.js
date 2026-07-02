@@ -10,6 +10,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,9 +28,9 @@ if (!API_KEY) {
 /**
  * Envia uma JSON-RPC request via stdin do processo proxy e aguarda a response.
  */
-function sendRequest(proc, method, params = {}, id = 1) {
+function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Timeout aguardando resposta de "${method}"`)), 15000);
+    const timeout = setTimeout(() => reject(new Error(`Timeout aguardando resposta de "${method}"`)), timeoutMs);
 
     let buffer = '';
 
@@ -152,8 +153,8 @@ describe('proxy stdio ↔ HTTP', () => {
   let requestId = 0;
 
   /** Envia request com ID auto-incrementado. */
-  function request(method, params = {}) {
-    return sendRequest(proc, method, params, ++requestId);
+  function request(method, params = {}, timeoutMs = 15000) {
+    return sendRequest(proc, method, params, ++requestId, timeoutMs);
   }
 
   before(async () => {
@@ -228,14 +229,15 @@ describe('proxy stdio ↔ HTTP', () => {
 
       const agentId = agentsData.agents[0].id;
 
-      // Mensagem 1 — nova sessão
+      // Mensagem 1 — nova sessão. Turno de agente real (LLM + tools) pode
+      // passar de 15s em prod — timeout folgado evita flake no CI.
       const r1 = await request('tools/call', {
         name: 'chat_with_agent',
         arguments: {
           agent_id: agentId,
           message: 'Responda apenas: "ok"',
         },
-      });
+      }, 90_000);
 
       assert.ok(r1.result, 'deve ter result');
       assert.ok(!r1.result.isError, 'não deve ter erro');
@@ -251,7 +253,7 @@ describe('proxy stdio ↔ HTTP', () => {
           message: 'Qual foi minha mensagem anterior?',
           session_id: d1.session_id,
         },
-      });
+      }, 90_000);
 
       assert.ok(r2.result, 'deve ter result');
       const d2 = JSON.parse(r2.result.content[0].text);
@@ -277,11 +279,16 @@ describe('proxy stdio ↔ HTTP', () => {
   // ── Resources ──
 
   describe('resources', () => {
-    it('resources/list deve retornar 3 resources', async () => {
+    it('resources/list deve retornar 19 resources (3 originais + 10 schemas + 6 skills)', async () => {
       const res = await request('resources/list', {});
       assert.ok(res.result, 'deve ter result');
       assert.ok(Array.isArray(res.result.resources), 'resources deve ser array');
-      assert.equal(res.result.resources.length, 3);
+      assert.equal(res.result.resources.length, 19);
+
+      const uris = res.result.resources.map(r => r.uri);
+      assert.ok(uris.includes('zihin://agents'), 'inclui zihin://agents');
+      assert.equal(uris.filter(u => u.startsWith('zihin://schemas/')).length, 10, '10 contratos formais');
+      assert.equal(uris.filter(u => u.startsWith('zihin://skills/')).length, 6, '6 skills');
     });
 
     it('cada resource deve ter name, uri e description', async () => {
@@ -390,8 +397,9 @@ describe('proxy stdio ↔ HTTP', () => {
         clientInfo: { name: 'test-protocol', version: '1.0.0' },
       });
 
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
       assert.equal(res.result.serverInfo.name, 'zihin-mcp-proxy');
-      assert.equal(res.result.serverInfo.version, '1.3.0');
+      assert.equal(res.result.serverInfo.version, pkg.version);
     });
 
     it('capabilities deve declarar tools, resources e prompts', async () => {

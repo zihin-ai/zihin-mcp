@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 (2026-07-01)
+
+### Funcionalidades
+
+- **`install-skills`**: novo subcomando que instala as 6 skills do MCP Zihin no formato nativo do client — `--client claude|cursor|windsurf|codex|all`, `--dir`, `--global` (claude), `--bundled` (offline). Fonte primaria: o server vivo (resources `zihin://skills/*`); fallback: bundle empacotado no npm (`plugin/skills/`, sincronizado via `npm run sync-skills`).
+- **Plugin Claude Code**: marketplace neste repo (`claude plugin marketplace add zihin-ai/zihin-mcp` + `claude plugin install zihin@zihin`) — instala MCP server + skills em um comando.
+- Proxy compativel com server v2.4.0+ (96 tools com ToolAnnotations, 19 resources incl. contratos `zihin://schemas/*` e skills, instructions role-aware) — pass-through, sem mudanca de codigo no proxy.
+
+### Testes
+
+- `test/install-skills.test.js` (10 testes, sem rede): conversores puros por client + e2e local com `--bundled` em diretorio temporario (incl. idempotencia do bloco AGENTS.md).
+
 ## 1.3.0 (2026-03-28)
 
 ### Funcionalidades
