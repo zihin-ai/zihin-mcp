@@ -10,6 +10,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -277,11 +278,16 @@ describe('proxy stdio ↔ HTTP', () => {
   // ── Resources ──
 
   describe('resources', () => {
-    it('resources/list deve retornar 3 resources', async () => {
+    it('resources/list deve retornar 19 resources (3 originais + 10 schemas + 6 skills)', async () => {
       const res = await request('resources/list', {});
       assert.ok(res.result, 'deve ter result');
       assert.ok(Array.isArray(res.result.resources), 'resources deve ser array');
-      assert.equal(res.result.resources.length, 3);
+      assert.equal(res.result.resources.length, 19);
+
+      const uris = res.result.resources.map(r => r.uri);
+      assert.ok(uris.includes('zihin://agents'), 'inclui zihin://agents');
+      assert.equal(uris.filter(u => u.startsWith('zihin://schemas/')).length, 10, '10 contratos formais');
+      assert.equal(uris.filter(u => u.startsWith('zihin://skills/')).length, 6, '6 skills');
     });
 
     it('cada resource deve ter name, uri e description', async () => {
@@ -390,8 +396,9 @@ describe('proxy stdio ↔ HTTP', () => {
         clientInfo: { name: 'test-protocol', version: '1.0.0' },
       });
 
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
       assert.equal(res.result.serverInfo.name, 'zihin-mcp-proxy');
-      assert.equal(res.result.serverInfo.version, '1.3.0');
+      assert.equal(res.result.serverInfo.version, pkg.version);
     });
 
     it('capabilities deve declarar tools, resources e prompts', async () => {
