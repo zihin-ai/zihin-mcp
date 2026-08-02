@@ -25,11 +25,13 @@ const API_KEY = process.env.ZIHIN_API_KEY;
 const STDIO_PROTOCOL_VERSION = '2025-03-26';
 
 if (!API_KEY) {
-  // No CI o skip silencioso é perigoso: secret removido/renomeado deixaria o
-  // workflow verde rodando só os testes offline — exatamente o "verde falso"
-  // que este arquivo existe para impedir. Local, o skip continua válido.
-  if (process.env.CI) {
-    console.error('ZIHIN_API_KEY ausente no CI — os testes de integração são obrigatórios aqui.');
+  // A suíte executa um turno REAL de chat_with_agent (custo de LLM no
+  // tenant), então o CI de push/PR roda sem key — só os testes offline.
+  // REQUIRE_INTEGRATION=1 (gate de publish) transforma key ausente em
+  // falha: secret removido/renomeado não pode virar verde falso na única
+  // barreira antes do npm publish.
+  if (process.env.REQUIRE_INTEGRATION) {
+    console.error('ZIHIN_API_KEY ausente com REQUIRE_INTEGRATION=1 — os testes de integração são obrigatórios aqui.');
     process.exit(1);
   }
   console.error('ZIHIN_API_KEY não definida — pulando testes de integração.');

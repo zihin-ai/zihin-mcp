@@ -1,5 +1,15 @@
 # Changelog
 
+## Não lançado
+
+### Compatibilização MCP 2026-07-28 — Fases 0 e 1 (issue #6)
+
+- **SDK v2** (`@modelcontextprotocol/client` + `@modelcontextprotocol/server` `^2.0.0`, pacotes divididos), substituindo o monolítico `@modelcontextprotocol/sdk` v1 que para no protocolo 2025-11-25. O proxy segue falando o dialeto clássico nas duas pontas (`versionNegotiation` default `legacy` — handshake byte-idêntico); ligar o dialeto 2026-07-28 no lado HTTP vira um flip de configuração (`mode: 'auto'`) na Fase 2. **BREAKING: Node.js >= 20** (exigência do SDK v2; Node 18 é EOL desde abr/2025).
+- **Classificação de erro por código** em vez de heurística de string, já lendo as formas do v1 (`error.code` = status HTTP) e do v2 (`error.data.status`; `error.code` string). Removidos: `includes('api key')` (bug latente — erro de tool remota mencionando API Key derrubava o proxy) e as heurísticas `'session'`/`'404'` da era session-based. `-32022` (UnsupportedProtocolVersion) é fatal com instrução de upgrade.
+- **Keepalive com diff por conteúdo**: com o server stateless (produção desde 01/08) não há GET stream para `list_changed`; o keepalive de 30s é o único detector de mudança e agora compara assinatura, não `length`.
+- **`list_changed` via `ClientOptions.listChanged`**: funciona nas duas eras (notificação legacy hoje, `subscriptions/listen` auto-aberto no dialeto moderno).
+- Testes: falha de boot do proxy vira diagnóstico legível (exit code + stderr) em vez de timeout opaco de 20s; contagens exatas viram pisos; 13 testes unitários novos de classificação de erro; `protocolVersion` dos testes parametrizado em `STDIO_PROTOCOL_VERSION`.
+
 ## 1.4.0 (2026-07-01)
 
 ### Funcionalidades

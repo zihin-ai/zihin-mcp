@@ -12,7 +12,7 @@
   },
   "main": "src/index.js",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "files": [
     "bin/",
@@ -37,6 +37,7 @@
     "url": "git+https://github.com/zihin-ai/zihin-mcp.git"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1"
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0"
   }
 }
