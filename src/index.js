@@ -17,7 +17,7 @@ import { Server } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
 
-const VERSION = '2.0.1';
+const VERSION = '2.1.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
@@ -75,11 +75,20 @@ export async function startProxy() {
   const remoteClient = new Client(
     { name: 'zihin-mcp-proxy', version: VERSION },
     {
-      // versionNegotiation ausente = modo 'legacy': handshake initialize
-      // byte-idêntico ao SDK v1 (invariante da Fase 1: sem mudança de
-      // comportamento observável). A Fase 2 liga o dialeto 2026-07-28
-      // trocando para { mode: 'auto' } — probe server/discover com fallback
-      // automático para initialize.
+      // Fase 2: dialeto 2026-07-28 ligado. O connect() faz o probe
+      // server/discover; evidência moderna definitiva liga a era nova, e
+      // QUALQUER outra resposta (server antigo, rollback de deploy) cai no
+      // initialize legacy byte-idêntico ao de antes — o flip é seguro nos
+      // dois sentidos. Queda de rede continua rejeitando com erro tipado
+      // (em HTTP, silêncio é outage, não sinal de era).
+      versionNegotiation: { mode: 'auto' },
+      // O proxy não tem UI: nenhum handler de elicitation/sampling/roots
+      // registrado. Sem isto, um input_required (vocabulário novo da era
+      // moderna) entraria no driver de auto-fulfilment do SDK, que despacha
+      // para handlers inexistentes. Em modo manual ele vira SdkError
+      // UNSUPPORTED_RESULT_TYPE imediato — convertido em mensagem clara ao
+      // host no handler de tools/call (ver isInputRequiredError).
+      inputRequired: { autoFulfill: false },
       //
       // listChanged substitui os três setNotificationHandler do SDK v1.
       // Funciona nas duas eras: notificação legacy (GET stream) hoje,
@@ -117,14 +126,11 @@ export async function startProxy() {
     const httpTransport = new StreamableHTTPClientTransport(
       new URL(mcpUrl),
       {
+        // Sem reconnectionOptions: resumability de SSE só existe para o GET
+        // stream, e o server stateless (v2.4.0) não o oferece — a reconexão
+        // real é a do proxy (reconnect(), backoff próprio).
         requestInit: {
           headers: { 'X-Api-Key': apiKey },
-        },
-        reconnectionOptions: {
-          maxReconnectionDelay: RECONNECT_MAX_MS,
-          initialReconnectionDelay: RECONNECT_BASE_MS,
-          reconnectionDelayGrowFactor: 2,
-          maxRetries: 5,
         },
       },
     );
@@ -369,8 +375,12 @@ export async function startProxy() {
     try {
       return await withRetry(() => remoteClient.callTool({ name, arguments: args }), { reissue: false });
     } catch (error) {
+      const text = isInputRequiredError(error)
+        ? `A tool "${name}" pediu input interativo (input_required) e o proxy não tem interface para responder. ` +
+          'Reenvie a chamada com todos os argumentos necessários preenchidos.'
+        : `Erro ao executar tool "${name}": ${error.message}`;
       return {
-        content: [{ type: 'text', text: `Erro ao executar tool "${name}": ${error.message}` }],
+        content: [{ type: 'text', text }],
         isError: true,
       };
     }
@@ -481,6 +491,19 @@ export function isAuthError(error) {
  */
 export function isProtocolVersionError(error) {
   return error?.code === UNSUPPORTED_PROTOCOL_VERSION;
+}
+
+/**
+ * Verifica se o erro é um input_required do dialeto 2026-07-28 em modo manual
+ * (inputRequired.autoFulfill: false): o SDK v2 devolve SdkError com code
+ * 'UNSUPPORTED_RESULT_TYPE' e data.resultType = 'input_required'. Não é erro
+ * de conexão (reconectar não muda nada) nem fatal — o handler de tools/call
+ * converte em mensagem clara ao host. Na prática não deve ocorrer: o proxy
+ * não declara capabilities de elicitation/sampling/roots, então o server não
+ * tem base para pedir input; isto é a rede de segurança.
+ */
+export function isInputRequiredError(error) {
+  return error?.code === 'UNSUPPORTED_RESULT_TYPE' && error?.data?.resultType === 'input_required';
 }
 
 /**
