@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0 (2026-08-02)
+
+### Compatibilização MCP 2026-07-28 — Fase 2 (issue #6): dialeto moderno ligado
+
+- **Flip do dialeto no lado HTTP**: `versionNegotiation: { mode: 'auto' }` no client. O `connect()` agora faz o probe `server/discover`; contra o server de produção (v2.4.0, spec 2026-07-28) a conexão negocia a era moderna — os requests do proxy saem de `era=legacy` na métrica do server. O fallback é automático e conservador: qualquer resposta que não seja evidência moderna definitiva (server antigo, rollback) cai no handshake `initialize` byte-idêntico ao da 2.0.x. O lado stdio permanece no dialeto clássico — o proxy é o tradutor.
+- **`resultType` defensivo**: `inputRequired: { autoFulfill: false }`. O proxy não tem UI nem registra handlers de elicitation/sampling/roots; sem o modo manual, um `input_required` (vocabulário novo da era moderna) entraria no driver de auto-fulfilment do SDK contra handlers inexistentes. Agora vira erro imediato, convertido em mensagem clara ao host no `tools/call` (novo classificador exportado `isInputRequiredError`). Rede de segurança: o proxy não declara as capabilities que autorizariam o server a pedir input.
+- **`reconnectionOptions` removido do transport**: resumability de SSE só existe para o GET stream, que o server stateless não oferece — era código morto. A reconexão real continua sendo a do proxy (`reconnect()`, backoff exponencial próprio).
+
 ## 2.0.1 (2026-08-02)
 
 ### Correções

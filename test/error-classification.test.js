@@ -16,7 +16,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isAuthError, isConnectionError, isProtocolVersionError } from '../src/index.js';
+import { isAuthError, isConnectionError, isInputRequiredError, isProtocolVersionError } from '../src/index.js';
 
 /** Erro sintético com propriedades arbitrárias. */
 function err(message, props = {}) {
@@ -75,6 +75,39 @@ describe('isProtocolVersionError', () => {
     assert.ok(!isProtocolVersionError(err('closed', { code: -32000 })));
     assert.ok(!isProtocolVersionError(err('invalid params', { code: -32602 })));
     assert.ok(!isProtocolVersionError(err('sem código')));
+  });
+});
+
+describe('isInputRequiredError', () => {
+  // Forma real do SDK v2 em modo manual (inputRequired.autoFulfill: false):
+  // SdkError UNSUPPORTED_RESULT_TYPE com data = { resultType, method }.
+  const inputRequired = () =>
+    err("Unsupported result type 'input_required' for tools/call", {
+      code: 'UNSUPPORTED_RESULT_TYPE',
+      data: { resultType: 'input_required', method: 'tools/call' },
+    });
+
+  it('detecta o input_required do modo manual (dialeto 2026-07-28)', () => {
+    assert.ok(isInputRequiredError(inputRequired()));
+  });
+
+  it('outros resultType desconhecidos NÃO classificam (mensagem genérica do SDK basta)', () => {
+    assert.ok(!isInputRequiredError(err("Unsupported result type 'algo_novo' for tools/call", {
+      code: 'UNSUPPORTED_RESULT_TYPE',
+      data: { resultType: 'algo_novo', method: 'tools/call' },
+    })));
+  });
+
+  it('não confunde com erros de conexão nem com code solto', () => {
+    assert.ok(!isInputRequiredError(err('closed', { code: 'CONNECTION_CLOSED' })));
+    assert.ok(!isInputRequiredError(err('sem data', { code: 'UNSUPPORTED_RESULT_TYPE' })));
+    assert.ok(!isInputRequiredError(null));
+  });
+
+  it('input_required NÃO é erro de conexão nem fatal (não reconecta, não derruba)', () => {
+    assert.ok(!isConnectionError(inputRequired()));
+    assert.ok(!isAuthError(inputRequired()));
+    assert.ok(!isProtocolVersionError(inputRequired()));
   });
 });
 
