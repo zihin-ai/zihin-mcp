@@ -17,7 +17,7 @@ import { Server } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
 
-const VERSION = '1.4.0';
+const VERSION = '2.0.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 

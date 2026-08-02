@@ -44,6 +44,18 @@ jobs:
 
       - run: npm ci
 
-      - run: npm publish --access public
+      # Fluxo canary (ago/2026): a publicação real é MANUAL
+      # (npm publish --tag next com passkey; tokens bypass-2FA não publicam
+      # mais desde 28/07/2026). A tag v* é empurrada DEPOIS, como marco +
+      # gate de integração. Se a versão já está no npm, este job vira no-op
+      # verde em vez de falhar com "cannot publish over existing version".
+      - name: Publicar no npm (skip se versão já publicada)
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@zihin/mcp-server@$VERSION" version >/dev/null 2>&1; then
+            echo "Versão $VERSION já publicada (canary manual) — nada a fazer."
+          else
+            npm publish --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
