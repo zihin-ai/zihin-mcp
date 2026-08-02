@@ -71,9 +71,9 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
     // Sem isto, um proxy que morre no meio do teste vira um timeout opaco:
     // a causa real (exit code) fica invisível.
     function onExit(code, signal) {
-      finish(new Error(
-        `Proxy encerrou durante "${method}" (code=${code}, signal=${signal}) — nenhuma resposta recebida.`,
-      ));
+      const message = `Proxy encerrou durante "${method}" (code=${code}, signal=${signal}) — nenhuma resposta recebida.`;
+      console.error(message); // mesmo motivo do waitForReady: o drain pode engolir a rejeição
+      finish(new Error(message));
     }
 
     proc.stdout.on('data', onData);
@@ -115,11 +115,14 @@ function waitForReady(proc) {
         return;
       }
 
-      // A morte do proxy tira o último handle do event loop. Sem segurá-lo por
-      // um tick, o runner do node:test detecta o drain antes de processar esta
-      // rejeição e reporta "cancelledByParent" com fail 0 — o hook nunca é
-      // culpado e a causa some. Este timer dá a ele a janela para atribuir a
-      // falha ao before().
+      // A morte do proxy tira o último handle do event loop. O runner do
+      // node:test às vezes detecta o drain ANTES de processar esta rejeição e
+      // reporta "cancelledByParent" com fail 0 — o hook nunca é culpado e a
+      // causa some. Quem vence essa corrida depende da máquina (local
+      // reportava hookFailed; o runner do CI, não), então não dá para
+      // depender dela: imprimimos o diagnóstico nós mesmos. O timer ainda
+      // ajuda quando a corrida é vencida, mas o log já não depende disso.
+      console.error(error.message);
       setTimeout(() => {}, 50);
       reject(error);
     }
