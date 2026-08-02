@@ -25,6 +25,13 @@ const API_KEY = process.env.ZIHIN_API_KEY;
 const STDIO_PROTOCOL_VERSION = '2025-03-26';
 
 if (!API_KEY) {
+  // No CI o skip silencioso é perigoso: secret removido/renomeado deixaria o
+  // workflow verde rodando só os testes offline — exatamente o "verde falso"
+  // que este arquivo existe para impedir. Local, o skip continua válido.
+  if (process.env.CI) {
+    console.error('ZIHIN_API_KEY ausente no CI — os testes de integração são obrigatórios aqui.');
+    process.exit(1);
+  }
   console.error('ZIHIN_API_KEY não definida — pulando testes de integração.');
   process.exit(0);
 }
@@ -154,9 +161,13 @@ function waitForReady(proc) {
   });
 }
 
-/** Anexa o stderr do proxy à mensagem de erro, quando houver. */
+/**
+ * Anexa o stderr do proxy à mensagem de erro, quando houver.
+ * Redige a linha do banner com o sufixo da API Key: este diagnóstico vai
+ * para o log público do GitHub Actions em falha de CI.
+ */
 function formatStderr(stderrBuf) {
-  const trimmed = stderrBuf.trim();
+  const trimmed = stderrBuf.trim().replace(/API Key: \.\.\..+/g, 'API Key: [redigido]');
   return trimmed ? `\n--- stderr do proxy ---\n${trimmed}\n-----------------------` : '';
 }
 
@@ -217,7 +228,14 @@ describe('validação de API Key', () => {
     });
 
     assert.equal(code, 1);
-    assert.ok(stderr.includes('Falha ao conectar') || stderr.includes('ERRO'), 'deve reportar erro de conexão');
+    // Não basta "qualquer falha de boot" (rede offline também sai com ERRO):
+    // esta mensagem só aparece quando isAuthError classificou o 401 real do
+    // server — é o único teste que valida a forma do erro contra produção,
+    // coisa que os unit tests sintéticos não provam.
+    assert.ok(
+      stderr.includes('Verifique se a API Key é válida e está ativa.'),
+      `deve classificar como erro de auth (isAuthError), não como falha genérica. stderr:\n${stderr}`,
+    );
   });
 });
 
