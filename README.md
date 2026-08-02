@@ -180,8 +180,8 @@ As capabilities disponiveis dependem do role da API Key, controlado server-side:
 
 | Role | Tools | Resources | Prompts |
 |------|-------|-----------|---------|
-| `admin` | Todas (96) | 19 | 3 |
-| `editor` | Leitura (52 — writes nao sao listadas) | 19 | 3 |
+| `admin` | Todas (96) | 20 | 3 |
+| `editor` | Leitura (52 — writes nao sao listadas) | 20 | 3 |
 | `member` | Subset consumer (5) | - | - |
 
 O numero exato de tools pode variar conforme o server evolui.
@@ -193,7 +193,7 @@ O numero exato de tools pode variar conforme o server evolui.
 | `zihin://agents` | Lista de agentes do tenant |
 | `zihin://models` | Catalogo de modelos LLM disponiveis |
 | `zihin://schema-templates` | Templates de schema para configuracao |
-| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
+| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (11 tipos) |
 | `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
 
 ### Prompts disponiveis
@@ -206,13 +206,15 @@ O numero exato de tools pode variar conforme o server evolui.
 
 ## Testes
 
-O projeto inclui 19 testes de integracao real contra o server de producao:
+47 testes: unitarios offline (classificacao de erros, install-skills) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
 
 ```bash
 ZIHIN_API_KEY=zhn_live_xxx npm test
 ```
 
-Cobertura: validacao de API Key, tools (incluindo `chat_with_agent` com session tracking), resources, prompts e protocolo MCP.
+Cobertura: validacao de API Key, tools (incluindo `chat_with_agent` com session tracking e continuidade), resources, prompts, protocolo MCP (identidade espelhada + instructions) e classificacao de erros (formas SDK v1 e v2).
+
+> A suite de integracao executa um turno REAL de agente (custo de LLM no tenant). No CI ela roda apenas no gate de publish.
 
 ## Troubleshooting
 
