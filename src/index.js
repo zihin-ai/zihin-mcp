@@ -17,7 +17,7 @@ import { Server } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
 
-const VERSION = '2.0.0';
+const VERSION = '2.0.1';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
@@ -338,9 +338,21 @@ export async function startProxy() {
   if (remoteResources.length > 0) capabilities.resources = {};
   if (remotePrompts.length > 0) capabilities.prompts = {};
 
+  // Identidade ESPELHADA do upstream (achado da validação de canary 2.0.0):
+  // name/title/instructions vêm do server real — o proxy é transparente, e o
+  // instructions é o texto que ensina o modelo a operar as 96 tools (fluxos,
+  // RBAC, ponteiro para as skills zihin://skills/*). Sem repassá-lo, quem
+  // instala o pacote opera às cegas e "o agente só erra mais", sem erro
+  // visível. A version continua a do PROXY: identifica o hop que responde o
+  // stdio (essencial em bug report); a do server aparece via whoami/banner.
+  const upstreamInfo = remoteClient.getServerVersion() || {};
   const localServer = new Server(
-    { name: 'zihin-mcp-proxy', version: VERSION },
-    { capabilities },
+    {
+      name: upstreamInfo.name || 'zihin-mcp-proxy',
+      ...(upstreamInfo.title ? { title: upstreamInfo.title } : {}),
+      version: VERSION,
+    },
+    { capabilities, instructions: remoteClient.getInstructions() },
   );
 
   // Handlers registrados pela STRING do método (SDK v2) — o handler continua

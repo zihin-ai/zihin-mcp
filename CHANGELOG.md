@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1 (2026-08-02)
+
+### Correções
+
+- **Identidade espelhada do upstream no handshake stdio** (achado da validação de canary da 2.0.0 — diff de contrato proxy × servidor, 10/13): o proxy respondia `initialize` com identidade própria (`zihin-mcp-proxy`, sem `title`) e **sem `instructions`** — o texto de 2.110 chars que ensina o modelo a operar as 96 tools (fluxos, RBAC, ponteiro para as skills `zihin://skills/*`). Sem ele, quem instala o pacote opera às cegas: nenhum erro visível, "o agente só erra mais". Agora `serverInfo.name`/`title` e `instructions` são repassados do server real (`client.getServerVersion()`/`getInstructions()`, já obtidos no boot). A `version` continua a do proxy — identifica o hop que responde o stdio em bug reports. Gap pré-existente: a 1.4.0 também nunca repassou (o "pass-through" do CHANGELOG da 1.4.0 nunca valeu para o handshake).
+
 ## 2.0.0 (2026-08-02)
 
 ### Compatibilização MCP 2026-07-28 — Fases 0 e 1 (issue #6)

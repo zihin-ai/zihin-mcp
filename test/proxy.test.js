@@ -265,7 +265,7 @@ describe('proxy stdio ↔ HTTP', () => {
 
     assert.ok(initResult.result, 'initialize deve retornar result');
     assert.ok(initResult.result.serverInfo, 'deve ter serverInfo');
-    assert.equal(initResult.result.serverInfo.name, 'zihin-mcp-proxy');
+    assert.equal(initResult.result.serverInfo.name, 'zihin-builder', 'identidade espelhada do upstream');
 
     // Enviar initialized notification (sem id)
     proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
@@ -510,8 +510,10 @@ describe('proxy stdio ↔ HTTP', () => {
   // ── MCP Protocol ──
 
   describe('protocolo MCP', () => {
-    it('serverInfo deve conter name e version corretos', async () => {
-      // Já validado no before(), mas testar novamente com nova request
+    it('serverInfo espelha a identidade do upstream; version é a do proxy', async () => {
+      // Identidade espelhada (fix da validação de canary 2.0.0): o host vê o
+      // PRODUTO (zihin-builder), não o hop. A version é a do proxy — é ela
+      // que identifica o binário que responde o stdio num bug report.
       const res = await request('initialize', {
         protocolVersion: STDIO_PROTOCOL_VERSION,
         capabilities: {},
@@ -519,8 +521,24 @@ describe('proxy stdio ↔ HTTP', () => {
       });
 
       const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-      assert.equal(res.result.serverInfo.name, 'zihin-mcp-proxy');
-      assert.equal(res.result.serverInfo.version, pkg.version);
+      assert.equal(res.result.serverInfo.name, 'zihin-builder', 'name espelhado do server');
+      assert.ok(res.result.serverInfo.title, 'title espelhado do server');
+      assert.equal(res.result.serverInfo.version, pkg.version, 'version é a do proxy');
+    });
+
+    it('instructions do server chegam ao host local (ponteiro para as skills)', async () => {
+      // O instructions ensina o modelo a operar as 96 tools e aponta para as
+      // skills zihin://skills/*. Sem repassá-lo, o pacote opera às cegas —
+      // o usuário não vê erro, só "o agente erra mais".
+      const res = await request('initialize', {
+        protocolVersion: STDIO_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'test-instructions', version: '1.0.0' },
+      });
+
+      const instructions = res.result.instructions;
+      assert.equal(typeof instructions, 'string', 'instructions deve ser string');
+      assert.ok(instructions.length > 100, `instructions substancial (recebeu ${instructions?.length ?? 0} chars)`);
     });
 
     it('capabilities deve declarar tools, resources e prompts', async () => {
