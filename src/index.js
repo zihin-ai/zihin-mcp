@@ -218,11 +218,22 @@ export async function startProxy() {
         // mais GET stream para entregar list_changed —, então o diff é por
         // CONTEÚDO: comparar length não detecta troca de tool com contagem
         // igual (ex.: deploy que renomeia uma tool).
-        const result = await remoteClient.listTools();
+        //
+        // cacheMode 'bypass' por dois motivos (revisão 02/08):
+        // 1. Resiliência: 'use' (default) serviria do cache quando o server
+        //    passar a emitir ttlMs (SEP-2549) — keepalive cego, sem validar
+        //    auth nem detectar queda.
+        // 2. Performance: cada write no cache bumpa o stamp e força o 1º
+        //    callTool seguinte a re-derivar o índice de output-validators
+        //    (recompilação AJV de até ~110ms); bypass não escreve.
+        const result = await remoteClient.listTools(undefined, { cacheMode: 'bypass' });
         const signature = JSON.stringify(result.tools);
         if (signature !== remoteToolsSignature) {
           log(`Keepalive: tools atualizadas (${remoteTools.length} → ${result.tools.length})`);
           setRemoteTools(result.tools);
+          // Evento raro: sincroniza o cache/índice interno do SDK com a
+          // lista nova (validação de outputSchema do callTool lê de lá).
+          remoteClient.listTools(undefined, { cacheMode: 'refresh' }).catch(() => {});
         }
       } catch (error) {
         failIfFatal(error);
