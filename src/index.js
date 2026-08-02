@@ -25,6 +25,7 @@ import {
   ResourceListChangedNotificationSchema,
   PromptListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { writeSync } from 'node:fs';
 
 const VERSION = '1.4.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
@@ -279,14 +280,24 @@ export async function startProxy() {
 
   // --- Wrapper com retry para operações remotas ---
 
-  async function withRetry(operation) {
+  async function withRetry(operation, { reissue = true } = {}) {
     try {
       return await operation();
     } catch (error) {
       // Não retry em erro fatal: reemitir com a mesma key/versão falha igual
       if (isAuthError(error) || isProtocolVersionError(error)) throw error;
       if (isConnectionError(error)) {
-        log(`Erro de conexão detectado. Reconectando...`);
+        log('Erro de conexão detectado. Reconectando...');
+        if (!reissue) {
+          // tools/call NÃO é idempotente (ex.: chat_with_agent): em timeout ou
+          // conexão caída pós-envio o request pode ter executado no server, e
+          // reemitir duplicaria o efeito. Reconecta em background e devolve o
+          // erro ao host — quem decide reenviar é o usuário. (Decisão de
+          // revisão 02/08; a extensão Tasks da Fase 3 devolve a transparência
+          // do jeito certo.)
+          reconnect();
+          throw error;
+        }
         await reconnect();
         return await operation();
       }
@@ -336,7 +347,7 @@ export async function startProxy() {
   localServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
-      return await withRetry(() => remoteClient.callTool({ name, arguments: args }));
+      return await withRetry(() => remoteClient.callTool({ name, arguments: args }), { reissue: false });
     } catch (error) {
       return {
         content: [{ type: 'text', text: `Erro ao executar tool "${name}": ${error.message}` }],
@@ -462,6 +473,12 @@ export function isProtocolVersionError(error) {
 export function isConnectionError(error) {
   if (isAuthError(error) || isProtocolVersionError(error)) return false;
 
+  // Status HTTP transitórios de LB/CDN/tunnel/deploy (nginx 502, Cloudflare
+  // 503, gateway timeout 504, 404 de janela de deploy) são recuperáveis —
+  // substitui de forma principiada o antigo casamento da string '404'.
+  const status = httpStatus(error);
+  if (status === 404 || status === 408 || status === 502 || status === 503 || status === 504) return true;
+
   const code = error?.code ?? error?.cause?.code; // undici embrulha rede em 'fetch failed' com cause
   switch (code) {
     case 'ECONNREFUSED':
@@ -498,7 +515,15 @@ function sleep(ms) {
 
 /**
  * Log para stderr (stdout é reservado para JSON-RPC MCP).
+ *
+ * writeSync, não console.error: stderr para pipe é assíncrono em POSIX e
+ * process.exit() não drena o buffer — as mensagens de ERRO FATAL sumiriam
+ * exatamente quando mais importam (o host veria só "Server disconnected").
  */
 function log(message) {
-  console.error(message);
+  try {
+    writeSync(2, message + '\n');
+  } catch {
+    // stderr fechado — nada a fazer
+  }
 }

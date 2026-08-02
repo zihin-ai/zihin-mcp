@@ -51,6 +51,19 @@ describe('isAuthError', () => {
     assert.ok(!isAuthError(err('Tool failed: configure a API Key do tenant no painel')));
     assert.ok(!isAuthError(err('invalid api key format in tool arguments')));
   });
+
+  it('sobrevive a erro nulo/vazio/sem message', () => {
+    assert.ok(!isAuthError(null));
+    assert.ok(!isAuthError(undefined));
+    assert.ok(!isAuthError({}));
+  });
+
+  it('code string "401" NÃO classifica (decisão: código é numérico; fallback de mensagem cobre)', () => {
+    // Documenta a decisão: httpStatus() exige número. Um '401' string só
+    // seria auth se a mensagem trouxesse unauthorized/forbidden.
+    assert.ok(!isAuthError(err('erro qualquer', { code: '401' })));
+    assert.ok(!isAuthError(err('erro qualquer', { data: { status: '401' } })));
+  });
 });
 
 describe('isProtocolVersionError', () => {
@@ -88,17 +101,34 @@ describe('isConnectionError', () => {
     assert.ok(!isConnectionError(err('unsupported', { code: -32022 })));
   });
 
-  it('REGRESSÃO: sem heurísticas da era session-based', () => {
-    // Com o server stateless não existe mais sessão para expirar, e um 404
-    // real é endpoint errado — reconectar não conserta nenhum dos dois.
+  it('REGRESSÃO: sem heurísticas de STRING da era session-based', () => {
+    // O que morreu foi o casamento de substring na mensagem ('session',
+    // '404') — induzível por texto arbitrário. Um 404 REAL (código numérico,
+    // vindo do transporte) é transitório de LB/deploy e continua recuperável
+    // — ver teste de status HTTP abaixo.
     assert.ok(!isConnectionError(err('session terminated by server')));
-    assert.ok(!isConnectionError(err('HTTP 404 Not Found')));
-    assert.ok(!isConnectionError(err('Not found', { code: 404 })));
+    assert.ok(!isConnectionError(err('HTTP 404 Not Found'))); // string na msg não basta
   });
 
   it('fallback por mensagem para rede sem código', () => {
     assert.ok(isConnectionError(err('fetch failed')));
     assert.ok(isConnectionError(err('socket hang up')));
     assert.ok(isConnectionError(err('The operation was aborted')));
+  });
+
+  it('status HTTP transitórios de LB/CDN/deploy são recuperáveis', () => {
+    // Substitui de forma principiada o antigo casamento da string '404':
+    // janela de deploy (404), nginx (502), Cloudflare (503), gateway (504).
+    for (const status of [404, 408, 502, 503, 504]) {
+      assert.ok(isConnectionError(err('html do LB', { code: status })), `v1 code ${status}`);
+      assert.ok(isConnectionError(err('html do LB', { data: { status } })), `v2 data.status ${status}`);
+    }
+    // 500 do próprio server não é transitório de infra — propaga ao host.
+    assert.ok(!isConnectionError(err('Internal Server Error', { code: 500 })));
+  });
+
+  it('sobrevive a erro nulo/vazio', () => {
+    assert.ok(!isConnectionError(null));
+    assert.ok(!isConnectionError({}));
   });
 });
