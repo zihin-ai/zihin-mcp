@@ -30,9 +30,22 @@ if (!API_KEY) {
  */
 function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Timeout aguardando resposta de "${method}"`)), timeoutMs);
-
     let buffer = '';
+    let settled = false;
+
+    const timeout = setTimeout(
+      () => finish(new Error(`Timeout aguardando resposta de "${method}"`)),
+      timeoutMs,
+    );
+
+    function finish(error, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      proc.stdout.removeListener('data', onData);
+      proc.removeListener('exit', onExit);
+      error ? reject(error) : resolve(value);
+    }
 
     function onData(chunk) {
       buffer += chunk.toString();
@@ -44,9 +57,7 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
         try {
           const parsed = JSON.parse(line);
           if (parsed.id === id) {
-            clearTimeout(timeout);
-            proc.stdout.removeListener('data', onData);
-            resolve(parsed);
+            finish(null, parsed);
             return;
           }
         } catch {
@@ -57,7 +68,16 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
       buffer = lines[lines.length - 1];
     }
 
+    // Sem isto, um proxy que morre no meio do teste vira um timeout opaco:
+    // a causa real (exit code) fica invisível.
+    function onExit(code, signal) {
+      const message = `Proxy encerrou durante "${method}" (code=${code}, signal=${signal}) — nenhuma resposta recebida.`;
+      console.error(message); // mesmo motivo do waitForReady: o drain pode engolir a rejeição
+      finish(new Error(message));
+    }
+
     proc.stdout.on('data', onData);
+    proc.once('exit', onExit);
 
     const request = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     proc.stdin.write(request + '\n');
@@ -66,23 +86,72 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
 
 /**
  * Aguarda o proxy ficar pronto (banner "Pronto!" no stderr).
+ *
+ * Falha de boot (API Key revogada, server fora do ar) precisa aparecer como
+ * tal: sem escutar 'exit'/'error' o processo morre, o banner nunca vem e a
+ * suíte inteira cai num timeout de 20s com "cancelledByParent" — o sintoma
+ * esconde a causa. Toda rejeição carrega o stderr acumulado.
  */
 function waitForReady(proc) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Timeout aguardando proxy ficar pronto')), 20000);
     let stderrBuf = '';
+    let settled = false;
+
+    const timeout = setTimeout(
+      () => finish(new Error(`Timeout aguardando proxy ficar pronto.${formatStderr(stderrBuf)}`)),
+      20000,
+    );
+
+    function finish(error, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      proc.stderr.removeListener('data', onData);
+      proc.removeListener('exit', onExit);
+      proc.removeListener('error', onError);
+
+      if (!error) {
+        resolve(value);
+        return;
+      }
+
+      // A morte do proxy tira o último handle do event loop. O runner do
+      // node:test às vezes detecta o drain ANTES de processar esta rejeição e
+      // reporta "cancelledByParent" com fail 0 — o hook nunca é culpado e a
+      // causa some. Quem vence essa corrida depende da máquina (local
+      // reportava hookFailed; o runner do CI, não), então não dá para
+      // depender dela: imprimimos o diagnóstico nós mesmos. O timer ainda
+      // ajuda quando a corrida é vencida, mas o log já não depende disso.
+      console.error(error.message);
+      setTimeout(() => {}, 50);
+      reject(error);
+    }
 
     function onData(chunk) {
       stderrBuf += chunk.toString();
-      if (stderrBuf.includes('Pronto!')) {
-        clearTimeout(timeout);
-        proc.stderr.removeListener('data', onData);
-        resolve(stderrBuf);
-      }
+      if (stderrBuf.includes('Pronto!')) finish(null, stderrBuf);
+    }
+
+    function onExit(code, signal) {
+      finish(new Error(
+        `Proxy encerrou antes de ficar pronto (code=${code}, signal=${signal}).${formatStderr(stderrBuf)}`,
+      ));
+    }
+
+    function onError(error) {
+      finish(new Error(`Falha ao spawnar o proxy: ${error.message}`));
     }
 
     proc.stderr.on('data', onData);
+    proc.once('exit', onExit);
+    proc.once('error', onError);
   });
+}
+
+/** Anexa o stderr do proxy à mensagem de erro, quando houver. */
+function formatStderr(stderrBuf) {
+  const trimmed = stderrBuf.trim();
+  return trimmed ? `\n--- stderr do proxy ---\n${trimmed}\n-----------------------` : '';
 }
 
 /**
@@ -279,16 +348,33 @@ describe('proxy stdio ↔ HTTP', () => {
   // ── Resources ──
 
   describe('resources', () => {
-    it('resources/list deve retornar 19 resources (3 originais + 10 schemas + 6 skills)', async () => {
+    it('resources/list deve expor os catálogos originais, os schemas e as skills', async () => {
       const res = await request('resources/list', {});
       assert.ok(res.result, 'deve ter result');
       assert.ok(Array.isArray(res.result.resources), 'resources deve ser array');
-      assert.equal(res.result.resources.length, 19);
 
       const uris = res.result.resources.map(r => r.uri);
-      assert.ok(uris.includes('zihin://agents'), 'inclui zihin://agents');
-      assert.equal(uris.filter(u => u.startsWith('zihin://schemas/')).length, 10, '10 contratos formais');
-      assert.equal(uris.filter(u => u.startsWith('zihin://skills/')).length, 6, '6 skills');
+
+      // Piso, não igualdade: o catálogo do server cresce (schemas foram de 10
+      // para 11 com zihin://schemas/mcp_resource_config). Uma contagem exata
+      // transforma crescimento legítimo do server em teste vermelho aqui.
+      for (const uri of ['zihin://models', 'zihin://agents', 'zihin://schema-templates']) {
+        assert.ok(uris.includes(uri), `deve incluir ${uri}`);
+      }
+
+      const schemas = uris.filter(u => u.startsWith('zihin://schemas/'));
+      const skills = uris.filter(u => u.startsWith('zihin://skills/'));
+      assert.ok(schemas.length >= 10, `esperado >= 10 contratos formais, recebeu ${schemas.length}`);
+      assert.ok(skills.length >= 6, `esperado >= 6 skills, recebeu ${skills.length}`);
+
+      // Invariante de forma: todo resource cai numa das três categorias
+      // conhecidas — pega categoria nova sem travar em contagem.
+      const originais = uris.filter(u => !u.startsWith('zihin://schemas/') && !u.startsWith('zihin://skills/'));
+      assert.deepEqual(
+        originais.sort(),
+        ['zihin://agents', 'zihin://models', 'zihin://schema-templates'],
+        'categoria de resource inesperada fora de schemas/ e skills/',
+      );
     });
 
     it('cada resource deve ter name, uri e description', async () => {
@@ -340,11 +426,17 @@ describe('proxy stdio ↔ HTTP', () => {
   // ── Prompts ──
 
   describe('prompts', () => {
-    it('prompts/list deve retornar 3 prompts', async () => {
+    it('prompts/list deve expor os prompts conhecidos', async () => {
       const res = await request('prompts/list', {});
       assert.ok(res.result, 'deve ter result');
       assert.ok(Array.isArray(res.result.prompts), 'prompts deve ser array');
-      assert.equal(res.result.prompts.length, 3);
+
+      // Presença dos conhecidos, não contagem exata — o server pode publicar
+      // prompts novos sem que isso seja regressão do proxy.
+      const names = res.result.prompts.map(p => p.name);
+      for (const name of ['setup-agent', 'add-tool', 'configure-webhook']) {
+        assert.ok(names.includes(name), `deve incluir o prompt "${name}"`);
+      }
     });
 
     it('cada prompt deve ter name, description e arguments', async () => {
