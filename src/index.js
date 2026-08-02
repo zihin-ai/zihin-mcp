@@ -69,10 +69,17 @@ export async function startProxy() {
 
   // Estado mutável — atualizado em cada (re)conexão
   let remoteTools = [];
+  let remoteToolsSignature = '[]'; // assinatura por conteúdo — ver keepalive
   let remoteResources = [];
   let remotePrompts = [];
   let reconnecting = false;
   let keepaliveTimer = null;
+
+  /** Atualiza o cache de tools mantendo a assinatura de conteúdo em sincronia. */
+  function setRemoteTools(tools) {
+    remoteTools = tools;
+    remoteToolsSignature = JSON.stringify(tools);
+  }
 
   const remoteClient = new Client(
     { name: 'zihin-mcp-proxy', version: VERSION },
@@ -115,7 +122,7 @@ export async function startProxy() {
       remoteClient.listPrompts(),
     ]);
 
-    remoteTools = toolsResult.status === 'fulfilled' ? toolsResult.value.tools : [];
+    setRemoteTools(toolsResult.status === 'fulfilled' ? toolsResult.value.tools : []);
     remoteResources = resourcesResult.status === 'fulfilled' ? resourcesResult.value.resources : [];
     remotePrompts = promptsResult.status === 'fulfilled' ? promptsResult.value.prompts : [];
 
@@ -129,7 +136,7 @@ export async function startProxy() {
       log('Notificação: tools atualizadas. Re-descobrindo...');
       try {
         const result = await remoteClient.listTools();
-        remoteTools = result.tools;
+        setRemoteTools(result.tools);
         log(`Tools atualizadas: ${remoteTools.length} tools`);
       } catch (error) {
         log(`Erro ao re-descobrir tools: ${error.message}`);
@@ -188,26 +195,42 @@ export async function startProxy() {
     }
   }
 
+  // --- Erros fatais (auth / versão de protocolo) ---
+
+  function failIfFatal(error) {
+    if (isAuthError(error)) {
+      log('');
+      log('ERRO FATAL: API Key inválida ou revogada.');
+      log('Atualize ZIHIN_API_KEY e reinicie o processo.');
+      process.exit(1);
+    }
+    if (isProtocolVersionError(error)) {
+      log('');
+      log('ERRO FATAL: o server não aceita mais a versão de protocolo MCP deste proxy (-32022).');
+      log('Atualize o pacote: npx @zihin/mcp-server@latest (ou npm install -g @zihin/mcp-server@latest).');
+      process.exit(1);
+    }
+  }
+
   // --- Smart keepalive (Fix 4) ---
 
   function startKeepalive() {
     stopKeepalive();
     keepaliveTimer = setInterval(async () => {
       try {
-        // Discovery contínuo: detecta tools novas/removidas + valida auth
+        // Discovery contínuo: detecta mudança nas tools + valida auth.
+        // Com o server stateless este é o ÚNICO detector de mudança — não há
+        // mais GET stream para entregar list_changed —, então o diff é por
+        // CONTEÚDO: comparar length não detecta troca de tool com contagem
+        // igual (ex.: deploy que renomeia uma tool).
         const result = await remoteClient.listTools();
-        const newCount = result.tools.length;
-        if (newCount !== remoteTools.length) {
-          log(`Keepalive: tools atualizadas (${remoteTools.length} → ${newCount})`);
-          remoteTools = result.tools;
+        const signature = JSON.stringify(result.tools);
+        if (signature !== remoteToolsSignature) {
+          log(`Keepalive: tools atualizadas (${remoteTools.length} → ${result.tools.length})`);
+          setRemoteTools(result.tools);
         }
       } catch (error) {
-        if (isAuthError(error)) {
-          log('');
-          log('ERRO FATAL: API Key inválida ou revogada.');
-          log('Atualize ZIHIN_API_KEY e reinicie o processo.');
-          process.exit(1);
-        }
+        failIfFatal(error);
         log('Keepalive falhou — reconectando...');
         reconnect();
       }
@@ -246,13 +269,8 @@ export async function startProxy() {
     } catch (error) {
       reconnecting = false;
 
-      // Fix 3: Auth error = fatal, não reconectar
-      if (isAuthError(error)) {
-        log('');
-        log('ERRO FATAL: API Key inválida ou revogada.');
-        log('Atualize ZIHIN_API_KEY e reinicie o processo.');
-        process.exit(1);
-      }
+      // Fix 3: auth/versão de protocolo = fatal, não reconectar
+      failIfFatal(error);
 
       log(`Falha ao reconectar: ${error.message}`);
       reconnect(attempt + 1);
@@ -265,7 +283,8 @@ export async function startProxy() {
     try {
       return await operation();
     } catch (error) {
-      if (isAuthError(error)) throw error; // Não retry em auth error
+      // Não retry em erro fatal: reemitir com a mesma key/versão falha igual
+      if (isAuthError(error) || isProtocolVersionError(error)) throw error;
       if (isConnectionError(error)) {
         log(`Erro de conexão detectado. Reconectando...`);
         await reconnect();
@@ -286,6 +305,9 @@ export async function startProxy() {
 
     if (isAuthError(error)) {
       log('Verifique se a API Key é válida e está ativa.');
+    } else if (isProtocolVersionError(error)) {
+      log('O server não aceita mais a versão de protocolo MCP deste proxy.');
+      log('Atualize o pacote: npx @zihin/mcp-server@latest.');
     } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
       log('Verifique sua conexão com a internet e a URL do server.');
     }
@@ -381,29 +403,84 @@ export async function startProxy() {
   process.on('SIGTERM', cleanup);
 }
 
-/**
- * Verifica se o erro indica autenticação inválida (401/403).
- * Esses erros são fatais — não faz sentido reconectar com a mesma key.
- */
-function isAuthError(error) {
-  const msg = (error.message || '').toLowerCase();
-  return (
-    msg.includes('401') ||
-    msg.includes('403') ||
-    msg.includes('unauthorized') ||
-    msg.includes('forbidden') ||
-    msg.includes('invalid api key') ||
-    msg.includes('api key')
-  );
+// ─── Classificação de erros ─────────────────────────────────────────
+//
+// Por CÓDIGO primeiro, mensagem só como fallback (espelha o
+// _classifyProbeError do zihin-agent-builder). O código chega em formas
+// diferentes conforme a origem — e a forma MUDA entre SDK v1 e v2, então o
+// classificador já lê as duas para sobreviver à migração da Fase 1:
+//   - SDK v1 StreamableHTTPError: error.code = status HTTP (401, 403, ...)
+//   - SDK v2 SdkHttpError:        error.data.status = status HTTP;
+//                                 error.code = string ('CONNECTION_CLOSED', ...)
+//   - McpError / ProtocolError:   error.code = JSON-RPC numérico (-32xxx)
+//   - Rede (undici):              error.code ou error.cause.code = 'ECONNRESET', ...
+
+/** Código JSON-RPC da spec 2026-07-28 para versão de protocolo não suportada. */
+const UNSUPPORTED_PROTOCOL_VERSION = -32022;
+
+/** Extrai o status HTTP do erro, nas formas do SDK v1 e v2. */
+function httpStatus(error) {
+  const code = error?.code;
+  if (typeof code === 'number' && code >= 100 && code < 600) return code; // v1: StreamableHTTPError
+  const status = error?.data?.status;
+  if (typeof status === 'number') return status; // v2: SdkHttpError
+  return null;
 }
 
 /**
- * Verifica se o erro indica problema de conexão/sessão (recuperável).
+ * Verifica se o erro indica autenticação inválida (401/403).
+ * Esses erros são fatais — não faz sentido reconectar com a mesma key.
+ *
+ * Sem casar 'api key' na mensagem: o texto de erro de uma TOOL remota que
+ * mencione API Key (ex.: config de um tenant) não pode derrubar o processo.
  */
-function isConnectionError(error) {
-  if (isAuthError(error)) return false;
-  const msg = (error.message || '').toLowerCase();
-  const code = error.code || '';
+export function isAuthError(error) {
+  const status = httpStatus(error);
+  if (status === 401 || status === 403) return true;
+  // Fallback para erros que não carregam código (corpo texto de fetch intermediário)
+  const msg = (error?.message || '').toLowerCase();
+  return msg.includes('unauthorized') || msg.includes('forbidden');
+}
+
+/**
+ * Verifica se o server rejeitou a versão do protocolo (-32022, spec
+ * 2026-07-28). Fatal: nenhuma reconexão resolve — só upgrade do pacote.
+ * Forward-looking: o SDK v1 nunca produz esse código; passa a importar
+ * quando o server Zihin desligar o modo legacy.
+ */
+export function isProtocolVersionError(error) {
+  return error?.code === UNSUPPORTED_PROTOCOL_VERSION;
+}
+
+/**
+ * Verifica se o erro indica problema de conexão (recuperável via reconnect).
+ *
+ * Sem as heurísticas 'session'/'404' da era session-based: o server de
+ * produção é stateless (não há mais Mcp-Session-Id para expirar), e um 404
+ * real é endpoint errado — reconectar não conserta.
+ */
+export function isConnectionError(error) {
+  if (isAuthError(error) || isProtocolVersionError(error)) return false;
+
+  const code = error?.code ?? error?.cause?.code; // undici embrulha rede em 'fetch failed' com cause
+  switch (code) {
+    case 'ECONNREFUSED':
+    case 'ENOTFOUND':
+    case 'ECONNRESET':
+    case 'EPIPE':
+    case 'ETIMEDOUT':
+    case 'UND_ERR_CONNECT_TIMEOUT':
+    case 'UND_ERR_SOCKET':
+    case 'CONNECTION_CLOSED': // SDK v2 SdkError
+    case 'SEND_FAILED':       // SDK v2 SdkError
+    case 'REQUEST_TIMEOUT':   // SDK v2 SdkError
+    case -32000:              // JSON-RPC ConnectionClosed
+    case -32001:              // JSON-RPC RequestTimeout
+      return true;
+  }
+
+  // Fallback por mensagem para erros de rede sem código
+  const msg = (error?.message || '').toLowerCase();
   return (
     msg.includes('fetch failed') ||
     msg.includes('econnrefused') ||
@@ -411,13 +488,7 @@ function isConnectionError(error) {
     msg.includes('econnreset') ||
     msg.includes('socket hang up') ||
     msg.includes('network') ||
-    msg.includes('abort') ||
-    msg.includes('session') ||
-    msg.includes('404') ||
-    code === 'ECONNREFUSED' ||
-    code === 'ENOTFOUND' ||
-    code === 'ECONNRESET' ||
-    code === 'UND_ERR_CONNECT_TIMEOUT'
+    msg.includes('abort')
   );
 }
 

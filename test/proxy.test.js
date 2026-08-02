@@ -18,6 +18,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(__dirname, '..', 'bin', 'zihin-mcp.js');
 const API_KEY = process.env.ZIHIN_API_KEY;
 
+// Dialeto que este teste fala no lado STDIO — o mesmo dos hosts atuais
+// (Claude Desktop/Cursor, handshake clássico). Um knob só: quando o lado
+// stdio ganhar o dialeto 2026-07-28, os testes parametrizam por aqui em vez
+// de caçar strings hardcoded.
+const STDIO_PROTOCOL_VERSION = '2025-03-26';
+
 if (!API_KEY) {
   console.error('ZIHIN_API_KEY não definida — pulando testes de integração.');
   process.exit(0);
@@ -232,7 +238,7 @@ describe('proxy stdio ↔ HTTP', () => {
 
     // MCP exige initialize handshake antes de qualquer request
     const initResult = await request('initialize', {
-      protocolVersion: '2025-03-26',
+      protocolVersion: STDIO_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: { name: 'test-runner', version: '1.0.0' },
     });
@@ -267,8 +273,11 @@ describe('proxy stdio ↔ HTTP', () => {
       for (const tool of res.result.tools) {
         assert.ok(tool.name, `tool sem name: ${JSON.stringify(tool)}`);
         assert.ok(tool.description, `tool "${tool.name}" sem description`);
+        // Objeto JSON Schema, sem exigir raiz type: 'object' — a spec
+        // 2026-07-28 permite schemas 2020-12 com raiz livre, e o proxy
+        // repassa verbatim o que o server publicar.
         assert.ok(tool.inputSchema, `tool "${tool.name}" sem inputSchema`);
-        assert.equal(tool.inputSchema.type, 'object', `inputSchema de "${tool.name}" deve ser type: object`);
+        assert.equal(typeof tool.inputSchema, 'object', `inputSchema de "${tool.name}" deve ser um objeto JSON Schema`);
       }
     });
 
@@ -484,7 +493,7 @@ describe('proxy stdio ↔ HTTP', () => {
     it('serverInfo deve conter name e version corretos', async () => {
       // Já validado no before(), mas testar novamente com nova request
       const res = await request('initialize', {
-        protocolVersion: '2025-03-26',
+        protocolVersion: STDIO_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: 'test-protocol', version: '1.0.0' },
       });
@@ -496,7 +505,7 @@ describe('proxy stdio ↔ HTTP', () => {
 
     it('capabilities deve declarar tools, resources e prompts', async () => {
       const res = await request('initialize', {
-        protocolVersion: '2025-03-26',
+        protocolVersion: STDIO_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: 'test-caps', version: '1.0.0' },
       });
