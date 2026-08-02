@@ -42,6 +42,18 @@ test('parseSkill tolera arquivo sem frontmatter', () => {
   assert.match(s.body, /^# Só corpo/);
 });
 
+test('SEGURANÇA: parseSkill rejeita name com path traversal', () => {
+  // name vira path.join(base, name) nos writers — um server comprometido
+  // com name '../../../x' escreveria fora do diretório de skills.
+  for (const evil of ['../../../tmp/evil', '..', 'a/b', 'a\\b', '.hidden', 'nome com espaço']) {
+    const s = parseSkill(`---\nname: ${evil}\ndescription: d\n---\ncorpo`);
+    assert.equal(s.name, 'zihin-skill', `name malicioso "${evil}" deve cair no default`);
+  }
+  // charset legítimo passa intacto
+  assert.equal(parseSkill('---\nname: zihin-criar-agente\n---\nx').name, 'zihin-criar-agente');
+  assert.equal(parseSkill('---\nname: skill_v2\n---\nx').name, 'skill_v2');
+});
+
 test('toCursorRule gera .mdc com description e alwaysApply false', () => {
   const mdc = toCursorRule(parseSkill(SAMPLE));
   assert.match(mdc, /^---\ndescription: Playbook de teste/);

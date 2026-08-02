@@ -49,8 +49,13 @@ export function parseSkill(raw) {
       if (m) meta[m[1]] = m[2].trim();
     }
   }
+  // name vira componente de caminho nos writers (path.join(base, name)):
+  // um server comprometido publicando name com '../' escreveria arquivo com
+  // corpo controlado em diretório arbitrário da máquina do usuário. Só
+  // charset seguro passa; qualquer outra coisa cai no default.
+  const name = /^[\w-]+$/.test(meta.name || '') ? meta.name : 'zihin-skill';
   return {
-    name: meta.name || 'zihin-skill',
+    name,
     description: meta.description || '',
     body: (fm ? raw.slice(fm[0].length) : raw).replace(/^\n+/, ''),
   };
