@@ -18,7 +18,20 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(__dirname, '..', 'bin', 'zihin-mcp.js');
 const API_KEY = process.env.ZIHIN_API_KEY;
 
+// Dialeto que este teste fala no lado STDIO — o mesmo dos hosts atuais
+// (Claude Desktop/Cursor, handshake clássico). Um knob só: quando o lado
+// stdio ganhar o dialeto 2026-07-28, os testes parametrizam por aqui em vez
+// de caçar strings hardcoded.
+const STDIO_PROTOCOL_VERSION = '2025-03-26';
+
 if (!API_KEY) {
+  // No CI o skip silencioso é perigoso: secret removido/renomeado deixaria o
+  // workflow verde rodando só os testes offline — exatamente o "verde falso"
+  // que este arquivo existe para impedir. Local, o skip continua válido.
+  if (process.env.CI) {
+    console.error('ZIHIN_API_KEY ausente no CI — os testes de integração são obrigatórios aqui.');
+    process.exit(1);
+  }
   console.error('ZIHIN_API_KEY não definida — pulando testes de integração.');
   process.exit(0);
 }
@@ -148,9 +161,13 @@ function waitForReady(proc) {
   });
 }
 
-/** Anexa o stderr do proxy à mensagem de erro, quando houver. */
+/**
+ * Anexa o stderr do proxy à mensagem de erro, quando houver.
+ * Redige a linha do banner com o sufixo da API Key: este diagnóstico vai
+ * para o log público do GitHub Actions em falha de CI.
+ */
 function formatStderr(stderrBuf) {
-  const trimmed = stderrBuf.trim();
+  const trimmed = stderrBuf.trim().replace(/API Key: \.\.\..+/g, 'API Key: [redigido]');
   return trimmed ? `\n--- stderr do proxy ---\n${trimmed}\n-----------------------` : '';
 }
 
@@ -211,7 +228,14 @@ describe('validação de API Key', () => {
     });
 
     assert.equal(code, 1);
-    assert.ok(stderr.includes('Falha ao conectar') || stderr.includes('ERRO'), 'deve reportar erro de conexão');
+    // Não basta "qualquer falha de boot" (rede offline também sai com ERRO):
+    // esta mensagem só aparece quando isAuthError classificou o 401 real do
+    // server — é o único teste que valida a forma do erro contra produção,
+    // coisa que os unit tests sintéticos não provam.
+    assert.ok(
+      stderr.includes('Verifique se a API Key é válida e está ativa.'),
+      `deve classificar como erro de auth (isAuthError), não como falha genérica. stderr:\n${stderr}`,
+    );
   });
 });
 
@@ -232,7 +256,7 @@ describe('proxy stdio ↔ HTTP', () => {
 
     // MCP exige initialize handshake antes de qualquer request
     const initResult = await request('initialize', {
-      protocolVersion: '2025-03-26',
+      protocolVersion: STDIO_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: { name: 'test-runner', version: '1.0.0' },
     });
@@ -267,8 +291,11 @@ describe('proxy stdio ↔ HTTP', () => {
       for (const tool of res.result.tools) {
         assert.ok(tool.name, `tool sem name: ${JSON.stringify(tool)}`);
         assert.ok(tool.description, `tool "${tool.name}" sem description`);
+        // Objeto JSON Schema, sem exigir raiz type: 'object' — a spec
+        // 2026-07-28 permite schemas 2020-12 com raiz livre, e o proxy
+        // repassa verbatim o que o server publicar.
         assert.ok(tool.inputSchema, `tool "${tool.name}" sem inputSchema`);
-        assert.equal(tool.inputSchema.type, 'object', `inputSchema de "${tool.name}" deve ser type: object`);
+        assert.equal(typeof tool.inputSchema, 'object', `inputSchema de "${tool.name}" deve ser um objeto JSON Schema`);
       }
     });
 
@@ -484,7 +511,7 @@ describe('proxy stdio ↔ HTTP', () => {
     it('serverInfo deve conter name e version corretos', async () => {
       // Já validado no before(), mas testar novamente com nova request
       const res = await request('initialize', {
-        protocolVersion: '2025-03-26',
+        protocolVersion: STDIO_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: 'test-protocol', version: '1.0.0' },
       });
@@ -496,7 +523,7 @@ describe('proxy stdio ↔ HTTP', () => {
 
     it('capabilities deve declarar tools, resources e prompts', async () => {
       const res = await request('initialize', {
-        protocolVersion: '2025-03-26',
+        protocolVersion: STDIO_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: 'test-caps', version: '1.0.0' },
       });
