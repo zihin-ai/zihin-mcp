@@ -1,6 +1,6 @@
 # Changelog
 
-## Não lançado
+## 2.0.0 (2026-08-02)
 
 ### Compatibilização MCP 2026-07-28 — Fases 0 e 1 (issue #6)
 
@@ -9,6 +9,18 @@
 - **Keepalive com diff por conteúdo**: com o server stateless (produção desde 01/08) não há GET stream para `list_changed`; o keepalive de 30s é o único detector de mudança e agora compara assinatura, não `length`.
 - **`list_changed` via `ClientOptions.listChanged`**: funciona nas duas eras (notificação legacy hoje, `subscriptions/listen` auto-aberto no dialeto moderno).
 - Testes: falha de boot do proxy vira diagnóstico legível (exit code + stderr) em vez de timeout opaco de 20s; contagens exatas viram pisos; 13 testes unitários novos de classificação de erro; `protocolVersion` dos testes parametrizado em `STDIO_PROTOCOL_VERSION`.
+
+### Revisão quádrupla (segurança/performance/resiliência/cobertura)
+
+- **`tools/call` nunca é reemitido** após erro de conexão/timeout: reemitir `chat_with_agent` não é idempotente e timeout é o caso em que a 1ª execução mais provavelmente ainda roda no server (turno duplicado). O proxy reconecta em background e devolve o erro ao host. `list`/`read`/`get` (idempotentes) mantêm retry transparente.
+- Status HTTP transitórios de LB/CDN/deploy (404/408/502/503/504) são recuperáveis por código, nas formas v1 e v2.
+- Keepalive com `cacheMode: 'bypass'`: nunca servido do cache (auth/queda sempre validados) e sem stamp churn no índice de validators do SDK (evita recompilação AJV no 1º `callTool` após cada tick).
+- Mensagens de erro fatal via `fs.writeSync(2)` — `process.exit()` não drena stderr assíncrono; o host via só "Server disconnected".
+- **Segurança (`install-skills`)**: `name` de skill não pode ser componente de caminho livre — um server comprometido com `name: ../../x` gravava arquivo controlado em diretório arbitrário. Choke point em `parseSkill` (`/^[\w-]+$/`).
+
+### CI/CD
+
+- Testes de integração (que executam um turno real de `chat_with_agent`, com custo de LLM) saem do CI de push/PR — só testes offline lá. A integração real fica como gate do publish (`REQUIRE_INTEGRATION=1`: secret ausente falha em vez de pular).
 
 ## 1.4.0 (2026-07-01)
 
