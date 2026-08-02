@@ -71,3 +71,34 @@ Premissa: o server em `llm.zihin.ai/mcp` também é Zihin — o proxy só precis
 | 10 | Pass-through de `traceparent` em `_meta` | P |
 
 **Sequência de compat:** (fase 0) itens 1+8 no SDK v1, sem risco; (fase 1) SDK v2 falando 2025-xx com o server atual; (fase 2) quando o server Zihin publicar 2026-07-28, ligar o dialeto novo via probe `server/discover`, com fallback automático para initialize; (fase 3) itens 3/4/5 ativos só no dialeto novo. O lado stdio permanece no handshake clássico até os hosts migrarem — o proxy absorve a diferença.
+
+---
+
+## Adendo — 02/08/2026: o servidor já migrou
+
+A análise acima é um retrato de 31/07 e parte de uma premissa que **deixou de valer**: a de que o proxy só precisaria falar 2026-07-28 quando o server falasse. Verificação por probe direto em 02/08:
+
+```
+serverInfo     : zihin-builder 2.4.0
+Mcp-Session-Id : (nenhum)      <- stateless
+tools/resources: 96 / 20
+```
+
+A ausência de `Mcp-Session-Id` é a assinatura do desenho stateless do PR zihin-agent-builder#320 (SDK v2, spec 2026-07-28), e `2.4.0` bate com o smoke daquele PR. A branch de deploy do serviço é `server-llm` (158 commits à frente da `main`), onde #320, #321, #323 e #324 já estão mergeados.
+
+**Nada está quebrado**: aquele PR escolheu `legacy: 'stateless'` no `createMcpHandler`, então o mesmo `/mcp` atende as duas eras e o proxy em SDK v1 segue funcionando. A migração aqui é preventiva, não corretiva.
+
+### O que isso muda nas seções B e C
+
+| Item | Como estava | Como está |
+|---|---|---|
+| **B.3** `subscriptions/listen` | "QUEBRA o discovery dinâmico" quando o server migrar | **Já quebrou.** Sem sessão não há GET SSE server→client: os handlers de `list_changed` (`src/index.js:128-159`) são código morto hoje. O único detector de mudança em produção é o keepalive de 30s |
+| **C.8** cache/diff por conteúdo | "Oportunidade, esforço P" | Promovido: o diff por `length` (`src/index.js:200`) é o **único** mecanismo de detecção que resta |
+| **C.7** `server/discover` como probe | Item de trabalho | Vira configuração: o client v2 faz isso com `versionNegotiation: { mode: 'auto' }` (provado no `McpV2Connection.js` do zihin-agent-builder) |
+| **C.1** erro por código | "Substituir a classificação por string" | Espelhar o `_classifyProbeError` (`McpClientService.js:767`): a forma do erro **muda** entre SDKs — v1 põe o status HTTP em `err.code`, v2 põe em `err.data.status` e usa `err.code` como string. Regex permanece como *fallback*, não é removida |
+
+### Razão nova para priorizar o SDK v2
+
+O `mcp-server/http.js` do #320 emite `mcp.server.requests{era}` justamente para decidir quando desligar o modo legacy. Enquanto o `@zihin/mcp-server` for SDK v1, **todo usuário do proxy conta como cliente legacy** — a Zihin não consegue concluir que dá para desligar o legacy enquanto o próprio proxy for a maior fonte desse tráfego.
+
+Além disso, o #324 anuncia como próximos passos de lá o cache `ttlMs` (via `InMemoryResponseCacheStore` do client v2) e Tasks SEP-2663. Ambos são consumidos pelo **client**: se o server passar a emitir cache hints e Tasks e o proxy continuar em v1, ele ignora os dois em silêncio.
