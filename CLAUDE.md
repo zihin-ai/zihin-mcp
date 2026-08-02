@@ -12,7 +12,7 @@ Cliente MCP <-stdio-> [Proxy local (src/index.js)] <-HTTP-> https://llm.zihin.ai
 
 - `src/index.js` — proxy principal (~140 LOC), exporta `startProxy()`
 - `bin/zihin-mcp.js` — CLI entry point
-- Usa MCP SDK: `Server` (low-level) + `Client` + `StreamableHTTPClientTransport`
+- Usa MCP SDK v2: `Client` + `StreamableHTTPClientTransport` (`@modelcontextprotocol/client`) e `Server` low-level + `StdioServerTransport` (`@modelcontextprotocol/server`)
 - Auth via header `X-Api-Key`, RBAC enforced server-side
 
 ## Comandos
@@ -30,9 +30,9 @@ ZIHIN_API_KEY=zhn_live_xxx node bin/zihin-mcp.js
 - Idioma: portugues brasileiro para docs, commits e comentarios
 - Formato de commit: `feat(scope): descricao` com `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 - Sem emojis
-- JS puro, ESM (`type: module`), Node.js >= 18
+- JS puro, ESM (`type: module`), Node.js >= 20 (exigido pelo SDK v2)
 - Zero devDependencies — testes usam `node:test` nativo
-- Unica dependencia: `@modelcontextprotocol/sdk`
+- Dependencias: `@modelcontextprotocol/client` + `@modelcontextprotocol/server` (SDK v2, pacotes divididos)
 
 ## Estrutura
 

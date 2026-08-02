@@ -10,21 +10,11 @@
  * @module @zihin/mcp-server
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
-  ToolListChangedNotificationSchema,
-  ResourceListChangedNotificationSchema,
-  PromptListChangedNotificationSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+// SDK v2 (pacotes divididos): este pacote é as duas coisas ao mesmo tempo —
+// client HTTP contra llm.zihin.ai e server stdio para o host local.
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { Server } from '@modelcontextprotocol/server';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
 
 const VERSION = '1.4.0';
@@ -84,6 +74,41 @@ export async function startProxy() {
 
   const remoteClient = new Client(
     { name: 'zihin-mcp-proxy', version: VERSION },
+    {
+      // versionNegotiation ausente = modo 'legacy': handshake initialize
+      // byte-idêntico ao SDK v1 (invariante da Fase 1: sem mudança de
+      // comportamento observável). A Fase 2 liga o dialeto 2026-07-28
+      // trocando para { mode: 'auto' } — probe server/discover com fallback
+      // automático para initialize.
+      //
+      // listChanged substitui os três setNotificationHandler do SDK v1.
+      // Funciona nas duas eras: notificação legacy (GET stream) hoje,
+      // subscriptions/listen auto-aberto quando o dialeto moderno ligar.
+      // O SDK refaz o list e entrega o resultado pronto no callback.
+      listChanged: {
+        tools: {
+          onChanged: (error, tools) => {
+            if (error) return log(`Erro ao re-descobrir tools: ${error.message}`);
+            setRemoteTools(tools);
+            log(`Tools atualizadas: ${tools.length} tools`);
+          },
+        },
+        resources: {
+          onChanged: (error, resources) => {
+            if (error) return log(`Erro ao re-descobrir resources: ${error.message}`);
+            remoteResources = resources;
+            log(`Resources atualizados: ${resources.length} resources`);
+          },
+        },
+        prompts: {
+          onChanged: (error, prompts) => {
+            if (error) return log(`Erro ao re-descobrir prompts: ${error.message}`);
+            remotePrompts = prompts;
+            log(`Prompts atualizados: ${prompts.length} prompts`);
+          },
+        },
+      },
+    },
   );
 
   // --- Conexão e discovery ---
@@ -132,39 +157,8 @@ export async function startProxy() {
     // Identificar tenant via whoami (best-effort)
     await identifyTenant();
 
-    // Notification handlers para discovery dinâmico
-    remoteClient.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
-      log('Notificação: tools atualizadas. Re-descobrindo...');
-      try {
-        const result = await remoteClient.listTools();
-        setRemoteTools(result.tools);
-        log(`Tools atualizadas: ${remoteTools.length} tools`);
-      } catch (error) {
-        log(`Erro ao re-descobrir tools: ${error.message}`);
-      }
-    });
-
-    remoteClient.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
-      log('Notificação: resources atualizados. Re-descobrindo...');
-      try {
-        const result = await remoteClient.listResources();
-        remoteResources = result.resources;
-        log(`Resources atualizados: ${remoteResources.length} resources`);
-      } catch (error) {
-        log(`Erro ao re-descobrir resources: ${error.message}`);
-      }
-    });
-
-    remoteClient.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
-      log('Notificação: prompts atualizados. Re-descobrindo...');
-      try {
-        const result = await remoteClient.listPrompts();
-        remotePrompts = result.prompts;
-        log(`Prompts atualizados: ${remotePrompts.length} prompts`);
-      } catch (error) {
-        log(`Erro ao re-descobrir prompts: ${error.message}`);
-      }
-    });
+    // Discovery dinâmico via list_changed: configurado em ClientOptions
+    // (listChanged) — o SDK v2 registra os handlers e refaz o list sozinho.
 
     // Iniciar keepalive
     startKeepalive();
@@ -338,13 +332,16 @@ export async function startProxy() {
     { capabilities },
   );
 
+  // Handlers registrados pela STRING do método (SDK v2) — o handler continua
+  // recebendo o request tipado com a mesma forma (request.params).
+
   // Handler: listTools
-  localServer.setRequestHandler(ListToolsRequestSchema, async () => ({
+  localServer.setRequestHandler('tools/list', async () => ({
     tools: remoteTools,
   }));
 
   // Handler: callTool (com retry)
-  localServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+  localServer.setRequestHandler('tools/call', async (request) => {
     const { name, arguments: args } = request.params;
     try {
       return await withRetry(() => remoteClient.callTool({ name, arguments: args }), { reissue: false });
@@ -358,11 +355,11 @@ export async function startProxy() {
 
   // Handler: listResources
   if (remoteResources.length > 0) {
-    localServer.setRequestHandler(ListResourcesRequestSchema, async () => ({
+    localServer.setRequestHandler('resources/list', async () => ({
       resources: remoteResources,
     }));
 
-    localServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    localServer.setRequestHandler('resources/read', async (request) => {
       const { uri } = request.params;
       try {
         return await withRetry(() => remoteClient.readResource({ uri }));
@@ -376,11 +373,11 @@ export async function startProxy() {
 
   // Handler: prompts
   if (remotePrompts.length > 0) {
-    localServer.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    localServer.setRequestHandler('prompts/list', async () => ({
       prompts: remotePrompts,
     }));
 
-    localServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    localServer.setRequestHandler('prompts/get', async (request) => {
       const { name, arguments: args } = request.params;
       try {
         return await withRetry(() => remoteClient.getPrompt({ name, arguments: args }));

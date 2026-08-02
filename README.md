@@ -249,7 +249,7 @@ A API Key foi revogada ou desativada no painel Zihin. Gere uma nova key e atuali
 
 ## Requisitos
 
-- Node.js >= 18
+- Node.js >= 20
 - Compativel com macOS, Linux e Windows
 
 ## Licenca
