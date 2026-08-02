@@ -21,10 +21,14 @@ jobs:
 
       - run: npm ci
 
+      # Única barreira com key real antes do npm publish (raro, 1 turno de
+      # agente por release). REQUIRE_INTEGRATION=1 garante que secret ausente
+      # falha em vez de pular silenciosamente.
       - name: Testes de integração
         run: npm test
         env:
           ZIHIN_API_KEY: ${{ secrets.ZIHIN_API_KEY }}
+          REQUIRE_INTEGRATION: '1'
 
   publish:
     name: Publicar no npm
