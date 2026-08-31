@@ -10,7 +10,7 @@ Pacote npm `@zihin/mcp-server` — proxy stdio-to-HTTP que conecta clientes MCP 
 Cliente MCP <-stdio-> [Proxy local (src/index.js)] <-HTTP-> https://llm.zihin.ai/mcp
 ```
 
-- `src/index.js` — proxy principal (~560 linhas), exporta `startProxy()` e os classificadores de erro (`isAuthError`/`isConnectionError`/`isProtocolVersionError`)
+- `src/index.js` — proxy principal (~560 linhas), exporta `startProxy()`, os classificadores de erro (`isAuthError`/`isConnectionError`/`isProtocolVersionError`/`isInputRequiredError`/`isTimeoutError`) e `resolveCallTimeoutMs()`
 - `src/install-skills.js` — subcomando `install-skills` (skills no formato nativo de cada client)
 - `bin/zihin-mcp.js` — CLI entry point
 - Usa MCP SDK v2: `Client` + `StreamableHTTPClientTransport` (`@modelcontextprotocol/client`) e `Server` low-level + `StdioServerTransport` (`@modelcontextprotocol/server`)
@@ -61,16 +61,19 @@ zihin-mcp/
 
 - `ZIHIN_API_KEY` (obrigatoria) — API Key do tenant (prefixos: `zhn_live_`, `zhn_test_`, `zhn_dev_`)
 - `ZIHIN_MCP_URL` (opcional) — URL do server (default: `https://llm.zihin.ai/mcp`)
+- `ZIHIN_MCP_CALL_TIMEOUT_MS` (opcional) — teto de um `tools/call` em ms (default: 300000, faixa 1000–1800000). Precisa ficar acima do maior deadline do server (async 240s) para o `TURN_TIMEOUT` chegar ao host
 
 ## Testes
 
-47 testes — unitarios offline + integracao real contra producao (nada mockado):
+61 testes — unitarios offline + integracao real contra producao (nada mockado):
 - Unit (sem rede): classificadores de erro (formas SDK v1 e v2, regressoes nomeadas), conversores do install-skills, path traversal
 - Validacao de API Key (sem key, prefixo invalido, key invalida — exige a mensagem de classificacao de auth)
 - Tools: list, call, chat_with_agent (sessao + continuidade), tool inexistente
 - Resources: list (pisos + invariante de categoria, nao contagem exata), read
 - Prompts: list (presenca dos conhecidos), get com argumentos
 - Protocolo MCP: identidade espelhada do upstream (serverInfo.name/title), instructions repassado, capabilities
+- Timeout: classificacao (`isTimeoutError`), parse de `ZIHIN_MCP_CALL_TIMEOUT_MS`, teto anunciado no banner acima do deadline do server
+- Contrato de `chat_with_agent`: `execution_id` no sucesso, forma de `cancelled`/`tools_used`/`tool_calls`, description sem truncar
 
 ATENCAO: a suite de integracao executa um turno REAL de chat_with_agent (custo de LLM no tenant). Sem ZIHIN_API_KEY os testes de integracao pulam (skip local); com REQUIRE_INTEGRATION=1, key ausente = falha (gate de publish).
 

@@ -134,6 +134,7 @@ Qualquer cliente que suporte o protocolo MCP via stdio pode usar este pacote. O 
 |----------|-------------|-----------|
 | `ZIHIN_API_KEY` | Sim | API Key do tenant (formato `zhn_live_*`, `zhn_test_*` ou `zhn_dev_*`) |
 | `ZIHIN_MCP_URL` | Nao | URL do MCP Server (default: `https://llm.zihin.ai/mcp`) |
+| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (chat 150s, builder 180s, async 240s) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
 
 ## Como funciona
 

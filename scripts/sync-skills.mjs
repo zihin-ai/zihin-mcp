@@ -24,8 +24,9 @@ const dirIdx = args.indexOf('--from-dir');
 const srcDir = dirIdx !== -1 ? path.resolve(args[dirIdx + 1]) : DEFAULT_SRC;
 
 if (fromServer) {
-  const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
-  const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
+  // SDK v2 (pacote dividido) — o monolitico @modelcontextprotocol/sdk saiu das
+  // dependencias na v2.0.0 e este import quebrava com MODULE_NOT_FOUND.
+  const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client');
 
   const apiKey = process.env.ZIHIN_API_KEY;
   if (!apiKey) {

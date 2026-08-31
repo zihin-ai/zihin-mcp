@@ -16,7 +16,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isAuthError, isConnectionError, isInputRequiredError, isProtocolVersionError } from '../src/index.js';
+import {
+  isAuthError,
+  isConnectionError,
+  isInputRequiredError,
+  isProtocolVersionError,
+  isTimeoutError,
+  resolveCallTimeoutMs,
+} from '../src/index.js';
 
 /** Erro sintético com propriedades arbitrárias. */
 function err(message, props = {}) {
@@ -163,5 +170,69 @@ describe('isConnectionError', () => {
   it('sobrevive a erro nulo/vazio', () => {
     assert.ok(!isConnectionError(null));
     assert.ok(!isConnectionError({}));
+  });
+});
+
+describe('isTimeoutError', () => {
+  it('detecta REQUEST_TIMEOUT (SDK v2) e -32001 (JSON-RPC)', () => {
+    assert.ok(isTimeoutError(err('Request timed out', { code: 'REQUEST_TIMEOUT', data: { timeout: 300000 } })));
+    assert.ok(isTimeoutError(err('Request timed out', { code: -32001 })));
+  });
+
+  it('não confunde timeout com queda de conexão nem com erro fatal', () => {
+    assert.ok(!isTimeoutError(err('closed', { code: 'CONNECTION_CLOSED' })));
+    assert.ok(!isTimeoutError(err('unauthorized', { code: 401 })));
+    assert.ok(!isTimeoutError(err('gateway timeout', { code: 504 }))); // 504 é do LB, não do request
+    assert.ok(!isTimeoutError(null));
+  });
+
+  it('continua sendo erro de conexão para a sonda de keepalive', () => {
+    // Separação deliberada: o withRetry NÃO reconecta em timeout (o request
+    // morreu, a conexão não), mas o keepalive — que é a sonda de saúde —
+    // trata timeout como sintoma de queda e reconecta.
+    assert.ok(isConnectionError(err('Request timed out', { code: 'REQUEST_TIMEOUT' })));
+  });
+});
+
+describe('resolveCallTimeoutMs', () => {
+  const DEFAULT = 300_000;
+
+  it('default de 300s acima do maior deadline do server (async 240s)', () => {
+    assert.equal(resolveCallTimeoutMs(undefined), DEFAULT);
+    assert.equal(resolveCallTimeoutMs(''), DEFAULT);
+    assert.equal(resolveCallTimeoutMs(null), DEFAULT);
+    assert.ok(DEFAULT > 240_000, 'o server precisa ganhar a corrida e entregar o TURN_TIMEOUT');
+  });
+
+  it('aceita override numérico válido', () => {
+    assert.equal(resolveCallTimeoutMs('600000'), 600_000);
+    assert.equal(resolveCallTimeoutMs(90_000), 90_000);
+  });
+
+  it('clampa fora de faixa com aviso — piso de 1s pega o typo de SEGUNDOS', () => {
+    const avisos = [];
+    const warn = (m) => avisos.push(m);
+    // '300' pensando em segundos mataria todo tools/call em 300 ms, culpando
+    // o server por um timeout que é do config.
+    assert.equal(resolveCallTimeoutMs('300', warn), 1_000);
+    assert.ok(avisos[0].includes('MILISSEGUNDOS'), 'o aviso precisa dizer a unidade');
+  });
+
+  it('clampa o teto em 30 min — acima de 2^31 ms o setTimeout dispara na hora', () => {
+    const avisos = [];
+    const warn = (m) => avisos.push(m);
+    assert.equal(resolveCallTimeoutMs('999999999999', warn), 1_800_000);
+    assert.equal(resolveCallTimeoutMs(String(2 ** 31), warn), 1_800_000);
+    assert.equal(avisos.length, 2);
+  });
+
+  it('valor inválido cai no default com aviso, sem derrubar o boot', () => {
+    const avisos = [];
+    const warn = (m) => avisos.push(m);
+    for (const raw of ['abc', '0', '-1', 'NaN']) {
+      assert.equal(resolveCallTimeoutMs(raw, warn), DEFAULT, `raw ${raw}`);
+    }
+    assert.equal(avisos.length, 4, 'todo valor inválido deve avisar');
+    assert.ok(avisos[0].includes('ZIHIN_MCP_CALL_TIMEOUT_MS'));
   });
 });

@@ -11,11 +11,15 @@ Sequência canônica — não pule a validação nem inverta a ordem:
 
 `create_agent` com `name` (interno), `commercial_name` (exibido ao usuário final), `bio`, `type` (`assistant` | `chatbot` | `workflow` | `classifier` | `orchestrator` — orchestrator invoca outros agentes) e `llm_config`:
 
-- `model`: `"provider.modelo"` explícito (ex.: `openai.gpt-4.1-nano`) ou `"auto"` (roteamento inteligente). Consulte modelos válidos no resource `zihin://models` — NUNCA invente IDs de modelo.
-- `fallback_chain`: até 5 modelos ordenados.
+- `model`: `"provider.modelo"` explícito (ex.: `openai.gpt-4.1-nano`) ou `"auto"` (roteamento inteligente). Consulte modelos válidos no resource `zihin://models` — NUNCA invente IDs de modelo. **O prefixo de provider é obrigatório**: `"gpt-4o"` é rejeitado, `"openai.gpt-4o"` é aceito.
+- `fallback_chain`: até 5 modelos ordenados, sem repetição.
+- `max_iterations`: teto de iterações do loop por turno (máx. 30 — o runtime clampa aí).
+- Contrato completo em `zihin://schemas/llm_config`. Ele é **campo da tool**, não `schema_data` — `validate_schema_data` não aceita esse tipo.
 - Guarde o `agent_id` retornado.
 
-Erros esperáveis: `PLAN_LIMIT_REACHED` (limite de agentes do plano) e `MODEL_TIER_RESTRICTED` (modelo acima do tier do plano — troque o modelo ou use `auto`).
+**Tier do plano — onde o erro aparece.** Modelo acima do tier **não bloqueia** `create_agent` nem `update_agent`: a chamada passa e volta com `warnings` explicando. O bloqueio é no `publish_agent`, com `MODEL_TIER_RESTRICTED`. Se vier um `warnings` sobre tier, **trate ali** — trocar o modelo ou usar `"auto"` — em vez de seguir e descobrir na publicação. `whoami` informa o plano do tenant.
+
+Outro erro esperável: `PLAN_LIMIT_REACHED` (limite de agentes do plano).
 
 ## Passo 2 — Persona (obrigatória antes de publicar)
 

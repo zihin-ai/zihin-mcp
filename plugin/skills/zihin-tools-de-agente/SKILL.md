@@ -48,6 +48,18 @@ Workflow universal: leia o contrato (`zihin://schemas/api_config` ou `db_config`
 - Cache de tools tem TTL de 5 min — atualizou tools no servidor externo? `invalidate_mcp_cache` força reload imediato.
 - Sintoma clássico: agente responde "Tool not found" mas a telemetria mostra sucesso → servidor MCP marcado inativo/erro; rode `test_mcp_server` + `invalidate_mcp_cache` (mais em `zihin://skills/diagnostico`).
 
+## Tirar uma tool do agente
+
+Desativar o schema remove a tool para sempre; desligar o recurso no tenant afeta todos os agentes. Para tirar uma tool de UM agente mantendo o recurso disponível, use a blocklist da CSP:
+
+- `create_csp` / `update_csp` com `policy_type: "behavior"`, `scope: "agent"` e `rules.must_not_tools: ["nome_da_tool", ...]`.
+- Vale para **qualquer** tool — nativa da plataforma (`web_search`, `fetch_url`, `analyze_image`…), de `api_config`/`db_config` ou vinda de MCP externo.
+- É filtrada antes do turno nos dois runtimes, inclusive no resume de aprovação (HITL): a tool bloqueada nunca entra na superfície que o modelo enxerga.
+- `update_csp` **substitui** `rules` inteiro — reenvie os outros campos da política junto.
+- Confirme com `list_agent_tools` e, no turno seguinte, com `get_execution_trace` (a contagem de tools carregadas cai).
+
+Detalhes de escopo e herança em `zihin://skills/governanca-e-operacao`.
+
 ## Checklist de encerramento
 
 1. `validate_schema_data` passou sem errors.

@@ -19,7 +19,15 @@ Budget ≠ quota: budget é **teto de custo em USD por agente** e conta TODAS as
 `create_csp` / `update_csp` / `toggle_csp` / `get_effective_csps` (merge efetivo por agente). Contrato: `zihin://schemas/csp_config` (entidade — envie só name/policy_type/scope/rules/...).
 
 - Escopos hierárquicos: `tenant` > `team` > `agent` > `user` (herança de cima pra baixo; `scope_target_id` obrigatório fora de tenant).
-- Tipos e rules típicos: `schedule` (allowed_hours/days/timezone), `behavior` (max_tokens_per_request, allowed_models, max_iterations), `data` (allowed_tables, blocked_columns, max_rows), `origin` (allowed_ips/origins), `custom`.
+- ⚠️ **Campo fora do contrato é aceito em silêncio e fica inerte** — o schema permite propriedades extras, então errar o nome não dá erro, dá uma política que não faz nada. Confira em `zihin://schemas/csp_config`, em `$defs.{tipo}Rules`.
+- ⚠️ `update_csp` **substitui** `rules` inteiro, não mescla: reenvie os campos que quer manter.
+- Tipos e rules, com os nomes reais:
+  - `schedule` — `allowed_hours: {start, end}`, `allowed_days`, `blocked_dates`, `timezone`. **Aplicado**: fora da janela o turno é recusado na admissão, antes de chamar o modelo. Avaliado no timezone declarado (sem ele, UTC).
+  - `behavior` — `must_not_tools`, `max_iterations`, `max_tool_calls`, `max_tokens_per_request`, `require_approval_for`, `approval_policy_id`, `tone`, `language`, `must_do`, `must_not`.
+  - `data` — `sensitive_fields`, `never_expose`, `restricted_entities`, `restriction_message`.
+  - `custom` — shape livre, vira bloco de política no prompt sem interpretação do runtime.
+  - `origin` — **NÃO é aplicado em runtime** (nenhum entrypoint propaga IP/origem do cliente; countries/vpn/tor exigem provedor de geo que não integramos). É aceito e armazenado, mas não bloqueia: não use como controle de segurança.
+- Superfície de tools: `must_not_tools` é o **único** jeito de tirar uma tool do agente sem desligar o recurso no tenant. Vale nos dois runtimes, inclusive no resume de HITL. Ver `zihin://skills/tools-de-agente`.
 - Multi-agente (behavior): `max_agent_depth` (0-5, default 2), `allowed_invoke_agents` (whitelist de UUIDs; vazio = todos), `child_timeout_ms` (5000-300000).
 
 ## Aprovação humana — HITL
