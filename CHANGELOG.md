@@ -19,6 +19,7 @@
 
 - **Skills do plugin ressincronizadas com o BE** (`npm run sync-skills`): 5 das 6 estavam defasadas em relacao ao que o server publica em `zihin://skills/*` — tier de modelo que avisa no save e barra no `publish_agent`, `must_not_tools` como unico jeito de tirar uma tool de um agente, nomes reais das rules de CSP (campo fora do contrato e aceito em silencio e fica inerte), `origin` que nao e aplicado em runtime, e o bloco `call` do webhook (path `/api/triggers/webhook/{id}`, header de auth por trigger, canal de saida `user`). Quem instalou o pacote lia o playbook antigo.
 - **`scripts/sync-skills.mjs --from-server` voltou a funcionar**: ainda importava `@modelcontextprotocol/sdk` (SDK v1), fora das dependencias desde a 2.0.0 — o modo servidor morria com `MODULE_NOT_FOUND`.
+- **Seguranca do `--from-server` (revisao de seguranca do PR)**: com o ramo vivo de novo, o `name` do frontmatter — bytes vindos do server — virava componente de caminho sem validacao (`path.join(DEST, name)` + `mkdirSync` recursivo), o mesmo furo que o `install-skills.js` ja fechava com `/^[\w-]+$/`. Agora o script usa o `parseSkill()` compartilhado (que ancora o parse no frontmatter e aplica o choke point), checa contencao dentro de `plugin/skills/`, recusa colisao de nome e so apaga o destino depois de baixar e validar tudo. Escopo era so de mantenedor (`scripts/` nao vai no pacote npm), mas e a maquina que tem a API Key e o direito de publicar.
 
 ### Verificado sem mudanca de codigo
 
