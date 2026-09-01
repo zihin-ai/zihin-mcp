@@ -10,7 +10,7 @@ Pacote npm `@zihin/mcp-server` — proxy stdio-to-HTTP que conecta clientes MCP 
 Cliente MCP <-stdio-> [Proxy local (src/index.js)] <-HTTP-> https://llm.zihin.ai/mcp
 ```
 
-- `src/index.js` — proxy principal (~560 linhas), exporta `startProxy()`, os classificadores de erro (`isAuthError`/`isConnectionError`/`isProtocolVersionError`/`isInputRequiredError`/`isTimeoutError`) e `resolveCallTimeoutMs()`
+- `src/index.js` — proxy principal (~670 linhas), exporta `startProxy()`, os classificadores de erro (`isAuthError`/`isConnectionError`/`isProtocolVersionError`/`isInputRequiredError`/`isTimeoutError`) e `resolveCallTimeoutMs()`
 - `src/install-skills.js` — subcomando `install-skills` (skills no formato nativo de cada client)
 - `bin/zihin-mcp.js` — CLI entry point
 - Usa MCP SDK v2: `Client` + `StreamableHTTPClientTransport` (`@modelcontextprotocol/client`) e `Server` low-level + `StdioServerTransport` (`@modelcontextprotocol/server`)
@@ -24,6 +24,10 @@ ZIHIN_API_KEY=zhn_live_xxx npm test
 
 # Rodar o proxy localmente
 ZIHIN_API_KEY=zhn_live_xxx node bin/zihin-mcp.js
+
+# Ressincronizar as skills empacotadas com o BE (passo de release)
+npm run sync-skills                              # do checkout irmao ../zihin-agent-builder
+ZIHIN_API_KEY=zhn_live_xxx npm run sync-skills -- --from-server
 ```
 
 ## Convencoes
@@ -43,6 +47,7 @@ zihin-mcp/
 ├── bin/zihin-mcp.js       <- CLI entry point
 ├── src/index.js           <- Proxy stdio-to-HTTP
 ├── src/install-skills.js  <- Subcomando install-skills
+├── scripts/sync-skills.mjs <- Ressincroniza plugin/skills/ com o BE (release)
 ├── test/proxy.test.js     <- Integracao real contra producao (requer key)
 ├── test/error-classification.test.js  <- Unit, sem rede
 ├── test/install-skills.test.js        <- Unit + e2e local, sem rede
@@ -87,6 +92,12 @@ Publicacao (fluxo canary, decidido em 02/08/2026):
 1. `npm publish --tag next` MANUAL (passkey; npm abre o navegador — nao pedir --otp)
 2. Validacao do canary (diff de contrato proxy x servidor + client real)
 3. `npm dist-tag add @zihin/mcp-server@X.Y.Z latest` + push da tag `vX.Y.Z` (o publish.yml detecta versao ja publicada e vira no-op verde)
+
+## Skills empacotadas
+
+`plugin/skills/` e copia congelada de `server-llm/mcp-server/skills/` (repo `zihin-agent-builder`, branch `server-llm`). Mudanca de skill no BE so chega a quem instalou o pacote com uma nova publicacao no npm — rodar `npm run sync-skills` e conferir o diff faz parte do release.
+
+Nome de skill vira componente de caminho nos writers (`path.join(base, name)`): tanto o `install-skills.js` quanto o `sync-skills.mjs` passam pelo choke point `parseSkill()` (`/^[\w-]+$/`, parse ancorado no frontmatter). Nao reimplementar esse parse em lugar nenhum — conteudo vindo do server e nao confiavel.
 
 ## Nao commitar
 

@@ -2,6 +2,8 @@
 
 ## 2.2.0 (2026-08-31)
 
+Sem breaking change: quem esta na 2.1.0 sobe direto (Node >= 20 desde a 2.0.0). O ganho e visivel em turno de agente longo, que antes morria no proxy aos 60s.
+
 ### Compatibilizacao com o handoff de agosto/2026 do BE (issue #16)
 
 - **Teto de `tools/call` de 300s** (`ZIHIN_MCP_CALL_TIMEOUT_MS` para override), substituindo o default do SDK de 60s. O `/mcp` do server saiu do timeout global de 30s do Express e passou a ter deadline POR CANAL (chat 150s / builder 180s / async 240s); com 60s o proxy virava o cortador mais rapido da cadeia — todo turno de agente com 2+ tool_calls morria no proxy com `REQUEST_TIMEOUT` generico e o `TURN_TIMEOUT` do server, o unico erro que carrega `execution_id` + `session_id`, nunca chegava ao host. Com 300s o server ganha a corrida em todos os canais e o usuario recebe o erro investigavel. Valor invalido na env avisa e cai no default (typo no config do host nao pode deixar o usuario sem MCP).
@@ -19,7 +21,15 @@
 
 - **Skills do plugin ressincronizadas com o BE** (`npm run sync-skills`): 5 das 6 estavam defasadas em relacao ao que o server publica em `zihin://skills/*` — tier de modelo que avisa no save e barra no `publish_agent`, `must_not_tools` como unico jeito de tirar uma tool de um agente, nomes reais das rules de CSP (campo fora do contrato e aceito em silencio e fica inerte), `origin` que nao e aplicado em runtime, e o bloco `call` do webhook (path `/api/triggers/webhook/{id}`, header de auth por trigger, canal de saida `user`). Quem instalou o pacote lia o playbook antigo.
 - **`scripts/sync-skills.mjs --from-server` voltou a funcionar**: ainda importava `@modelcontextprotocol/sdk` (SDK v1), fora das dependencias desde a 2.0.0 — o modo servidor morria com `MODULE_NOT_FOUND`.
-- **Seguranca do `--from-server` (revisao de seguranca do PR)**: com o ramo vivo de novo, o `name` do frontmatter — bytes vindos do server — virava componente de caminho sem validacao (`path.join(DEST, name)` + `mkdirSync` recursivo), o mesmo furo que o `install-skills.js` ja fechava com `/^[\w-]+$/`. Agora o script usa o `parseSkill()` compartilhado (que ancora o parse no frontmatter e aplica o choke point), checa contencao dentro de `plugin/skills/`, recusa colisao de nome e so apaga o destino depois de baixar e validar tudo. Escopo era so de mantenedor (`scripts/` nao vai no pacote npm), mas e a maquina que tem a API Key e o direito de publicar.
+
+### Seguranca
+
+- **Path traversal fechado no `sync-skills.mjs --from-server`** (achado da revisao de seguranca deste PR): reviver o ramo trouxe de volta um sink em que o `name` do frontmatter — bytes vindos do server — virava componente de caminho sem validacao (`path.join(DEST, name)` + `mkdirSync` recursivo + `writeFileSync` com corpo tambem do server). Era o mesmo furo que o `install-skills.js` ja fechava com `/^[\w-]+$/` e que este script contornava com parse ad-hoc: server comprometido gravava arquivo de conteudo controlado em caminho arbitrario da maquina que roda o release — a que tem a API Key e o direito de publicar. Agora usa o `parseSkill()` compartilhado (parse ancorado no frontmatter + choke point), checa contencao dentro de `plugin/skills/`, recusa colisao de nome e so apaga o destino depois de baixar e validar tudo. Severidade baixa por escopo: `scripts/` nao esta em `files` do package.json, entao nenhum usuario do npm era exposto.
+
+### Documentacao
+
+- **Troubleshooting de timeout no README**: como distinguir o teto do proxy (mensagem propria, trabalho cancelado, sobe com `ZIHIN_MCP_CALL_TIMEOUT_MS`) do deadline do server (`TURN_TIMEOUT` com `execution_id` + `session_id` — os dois identificadores que o suporte precisa), e a nota de que o cliente MCP tem timeout proprio, independente destes.
+- **Skills empacotadas viraram item documentado de release** (CLAUDE.md): sao copia congelada do BE, entao mudanca la so chega ao usuario com republicacao no npm.
 
 ### Verificado sem mudanca de codigo
 
