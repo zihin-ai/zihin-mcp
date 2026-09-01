@@ -102,3 +102,40 @@ A ausência de `Mcp-Session-Id` é a assinatura do desenho stateless do PR zihin
 O `mcp-server/http.js` do #320 emite `mcp.server.requests{era}` justamente para decidir quando desligar o modo legacy. Enquanto o `@zihin/mcp-server` for SDK v1, **todo usuário do proxy conta como cliente legacy** — a Zihin não consegue concluir que dá para desligar o legacy enquanto o próprio proxy for a maior fonte desse tráfego.
 
 Além disso, o #324 anuncia como próximos passos de lá o cache `ttlMs` (via `InMemoryResponseCacheStore` do client v2) e Tasks SEP-2663. Ambos são consumidos pelo **client**: se o server passar a emitir cache hints e Tasks e o proxy continuar em v1, ele ignora os dois em silêncio.
+
+---
+
+## Adendo — 31/08/2026: o que o handoff de agosto do BE mudou (v2.2.0)
+
+Fechamento da sessão dedicada da issue #16. As seções A–C acima continuam válidas como análise, mas **as referências de linha a `src/index.js` estão defasadas** (o arquivo passou de ~430 para ~670 linhas entre a v1.4.0 e a v2.2.0) — leia-as como ponteiros conceituais, não como endereços.
+
+### Status do plano da seção C
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Erro por código numérico | ✅ v2.0.0 |
+| 2 | SDK v2 (pacotes divididos) | ✅ v2.0.0 |
+| 3 | `subscriptions/listen` no lado HTTP | ✅ v2.0.0 — resolvido de graça pelo `listChanged` do ClientOptions |
+| 4 | Remover `reconnectionOptions` | ✅ v2.1.0 |
+| 5 | `resultType` defensivo | ✅ v2.1.0 |
+| 6 | Consertar testes | ✅ v2.0.0 |
+| 7 | `server/discover` como probe | ✅ v2.1.0 — virou `versionNegotiation: { mode: 'auto' }` |
+| 8 | Cache `ttlMs` + diff por conteúdo | ✅ v2.0.0 |
+| 9 | Extensão Tasks para `chat_with_agent` | ⏸ bloqueado — depende de o `/mcp` expor a extensão |
+| 10 | Pass-through de `traceparent` | ⏸ bloqueado — o SDK v2 já exporta `TRACEPARENT_META_KEY`; falta o server consumir |
+
+### O ângulo que esta análise não tinha: o tempo
+
+A análise inteira tratou de **dialeto** (handshake, era, forma do erro) e não de **duração**. O handoff de agosto expôs a lacuna: o `/mcp` saiu do timeout global de 30s do Express e ganhou deadline por canal (chat 150s / builder 180s / async 240s), enquanto o proxy nunca sobrescreveu o `DEFAULT_REQUEST_TIMEOUT_MSEC = 60000` do SDK. Resultado em produção: **o proxy era o cortador mais rápido da cadeia** — todo turno com 2+ tool_calls morria aqui com `REQUEST_TIMEOUT` genérico, e o `TURN_TIMEOUT` do server (o único erro que carrega `execution_id` + `session_id`) nunca chegava ao host.
+
+Três consequências de desenho que valem para qualquer mudança futura neste proxy:
+
+1. **Quem corta primeiro decide a mensagem que o usuário lê.** O teto do proxy tem que ficar acima do maior deadline do server (hoje 300s > 240s), senão a camada errada assina o erro.
+2. **Timeout ≠ queda de conexão.** Com o server stateless cada request é um POST próprio: o timeout mata o request, não a conexão. Reconectar por timeout é dano colateral, porque o `close()` aborta requests em voo de *outras* chamadas.
+3. **Cancelamento virou real.** No dialeto moderno o SDK aborta o POST em vez de mandar `notifications/cancelled`, e o server v2.4.0 honra o disconnect. Isso é bom (não há mais execução órfã queimando token) e perigoso: qualquer `close()` acidental — o do keepalive, por exemplo — passou a **matar o turno do usuário**. Daí a guarda de requests em voo na sonda de saúde.
+
+### Itens do handoff que não exigiram código
+
+- **405 em GET/DELETE** (server stateless): o `StreamableHTTPClientTransport` do SDK v2 trata 405 no GET como fim de stream e no DELETE como terminação aceita, sem `onerror`/`onclose`. E o `terminateSession()` nem dispara o DELETE sem `Mcp-Session-Id`, que o server stateless não manda.
+- **Contrato novo de `chat_with_agent`** (`execution_id` no sucesso, `cancelled`, `tools_used`/`tool_calls` não mais vazios, `description` documentando os dois comportamentos): o proxy é pass-through, então virou teste de integração em vez de código.
+- **`create_mcp_server`/`update_mcp_server` delegando ao service e `test_mcp_server` como probe real**: mudanças de comportamento server-side que o proxy repassa verbatim.

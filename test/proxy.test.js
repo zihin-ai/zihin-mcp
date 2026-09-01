@@ -252,9 +252,11 @@ describe('proxy stdio ↔ HTTP', () => {
     return sendRequest(proc, method, params, ++requestId, timeoutMs);
   }
 
+  let bootStderr = '';
+
   before(async () => {
     proc = spawnProxy({ ZIHIN_API_KEY: API_KEY });
-    await waitForReady(proc);
+    bootStderr = await waitForReady(proc);
 
     // MCP exige initialize handshake antes de qualquer request
     const initResult = await request('initialize', {
@@ -335,13 +337,30 @@ describe('proxy stdio ↔ HTTP', () => {
           agent_id: agentId,
           message: 'Responda apenas: "ok"',
         },
-      }, 90_000);
+      }, 180_000);
 
       assert.ok(r1.result, 'deve ter result');
       assert.ok(!r1.result.isError, 'não deve ter erro');
       const d1 = JSON.parse(r1.result.content[0].text);
       assert.ok(d1.session_id, 'deve retornar session_id');
       assert.ok(d1.response, 'deve retornar response');
+
+      // Contrato de saída do handoff de agosto/2026 (BE): sucesso passou a
+      // carregar execution_id SEMPRE (não só no erro) — é a correlação com o
+      // tool_call_logs, por onde a investigação começa. O proxy é
+      // pass-through, então este teste falha se o server regredir OU se algum
+      // dia o proxy passar a remontar o payload.
+      assert.ok(d1.execution_id, 'sucesso deve carregar execution_id (correlação)');
+      if ('cancelled' in d1) {
+        assert.equal(typeof d1.cancelled, 'boolean', 'cancelled deve ser boolean');
+        assert.equal(d1.cancelled, false, 'turno concluído não pode vir cancelled');
+      }
+      // tools_used/tool_calls deixaram de vir literalmente vazios no motor v2;
+      // o turno deste teste pode legitimamente não usar tool, então a asserção
+      // é de FORMA (array), não de conteúdo.
+      for (const campo of ['tools_used', 'tool_calls']) {
+        if (campo in d1) assert.ok(Array.isArray(d1[campo]), `${campo} deve ser array`);
+      }
 
       // Mensagem 2 — mesma sessão (continuidade de contexto)
       const r2 = await request('tools/call', {
@@ -351,12 +370,33 @@ describe('proxy stdio ↔ HTTP', () => {
           message: 'Qual foi minha mensagem anterior?',
           session_id: d1.session_id,
         },
-      }, 90_000);
+      }, 180_000);
 
       assert.ok(r2.result, 'deve ter result');
       const d2 = JSON.parse(r2.result.content[0].text);
       assert.equal(d2.session_id, d1.session_id, 'session_id deve ser mantido');
       assert.ok(d2.response, 'deve retornar response na segunda mensagem');
+    });
+
+    it('description de chat_with_agent chega inteira ao host (sem truncar)', async () => {
+      // A description é o que o modelo lê para saber operar a tool — e desde o
+      // handoff de agosto ela documenta TURN_TIMEOUT/execution_id. Truncá-la
+      // não gera erro visível: "o agente só erra mais" (mesma classe do bug de
+      // instructions corrigido na 2.0.1).
+      const res = await request('tools/list', {});
+      const chat = res.result.tools.find(t => t.name === 'chat_with_agent');
+      assert.ok(chat, 'chat_with_agent deve estar na lista');
+      assert.ok(chat.description.length >= 200, `description curta demais (${chat.description.length} chars) — suspeita de truncamento`);
+      assert.ok(!/(\u2026|\.\.\.)$/.test(chat.description.trim()), 'description termina em reticências — truncada');
+    });
+
+    it('o teto de tools/call folga o deadline do server (150s/180s/240s)', () => {
+      // Regressão do default do SDK (60s), que cortava o turno antes do
+      // server e trocava o TURN_TIMEOUT diagnosticável por um REQUEST_TIMEOUT
+      // genérico — com a execução seguindo no server (tokens gastos).
+      const m = bootStderr.match(/Timeout de tools\/call: (\d+)s/);
+      assert.ok(m, `banner deve anunciar o teto de tools/call.${formatStderr(bootStderr)}`);
+      assert.ok(Number(m[1]) >= 240, `teto de ${m[1]}s não cobre o canal async (240s) do server`);
     });
 
     it('tools/call com tool inexistente deve retornar erro', async () => {

@@ -17,7 +17,7 @@ import { Server } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
@@ -25,6 +25,24 @@ const KEEPALIVE_INTERVAL_MS = 30_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 const MAX_RECONNECT_ATTEMPTS = 10;
+
+/**
+ * Teto de tempo do proxy para um tools/call.
+ *
+ * O /mcp do server saiu do timeout global de 30s do Express e passou a ter
+ * deadline POR CANAL (chat 150s / builder 180s / async 240s). Quem corta
+ * primeiro decide a mensagem que o usuario le: com o default do SDK (60s), o
+ * proxy cortava ANTES do server em todo turno de agente com 2+ tool_calls e o
+ * host recebia um REQUEST_TIMEOUT generico — enquanto o TURN_TIMEOUT do
+ * server, o unico erro que carrega execution_id + session_id (por onde a
+ * investigacao comeca), nunca chegava. 300s deixa o server ganhar a corrida
+ * com folga em todos os canais.
+ */
+const DEFAULT_CALL_TIMEOUT_MS = 300_000;
+
+/** Faixa aceita para o override da env — ver resolveCallTimeoutMs. */
+const MIN_CALL_TIMEOUT_MS = 1_000;
+const MAX_CALL_TIMEOUT_MS = 1_800_000;
 
 /**
  * Inicia o proxy stdio ↔ HTTP.
@@ -54,8 +72,11 @@ export async function startProxy() {
     process.exit(1);
   }
 
+  const callTimeoutMs = resolveCallTimeoutMs(process.env.ZIHIN_MCP_CALL_TIMEOUT_MS, log);
+
   log(`API Key: ...${apiKey.slice(-6)}`);
   log(`Server:  ${mcpUrl}`);
+  log(`Timeout de tools/call: ${Math.round(callTimeoutMs / 1000)}s`);
   log('');
 
   // Estado mutável — atualizado em cada (re)conexão
@@ -65,6 +86,7 @@ export async function startProxy() {
   let remotePrompts = [];
   let reconnecting = false;
   let keepaliveTimer = null;
+  let inFlightRemoteCalls = 0; // ver a guarda no keepalive
 
   /** Atualiza o cache de tools mantendo a assinatura de conteúdo em sincronia. */
   function setRemoteTools(tools) {
@@ -218,6 +240,16 @@ export async function startProxy() {
   function startKeepalive() {
     stopKeepalive();
     keepaliveTimer = setInterval(async () => {
+      // Com o teto de 300s, um chat_with_agent pode ficar 4 minutos em voo —
+      // dez ticks de keepalive por cima dele. Se UM tick falhar (502 de LB,
+      // blip de rede), o reconnect() fecha o client e o close() ABORTA o
+      // request em voo: no dialeto moderno esse abort é cancelamento de
+      // verdade, então a sonda de saúde mataria o turno do usuário. Um
+      // request em voo já é prova de vida melhor do que a sonda, e se a
+      // conexão realmente caiu é ele quem falha primeiro — aí o withRetry
+      // reconecta. Detecção de mudança de tools só atrasa o que durar a
+      // chamada.
+      if (inFlightRemoteCalls > 0) return;
       try {
         // Discovery contínuo: detecta mudança nas tools + valida auth.
         // Com o server stateless este é o ÚNICO detector de mudança — não há
@@ -292,20 +324,31 @@ export async function startProxy() {
   // --- Wrapper com retry para operações remotas ---
 
   async function withRetry(operation, { reissue = true } = {}) {
+    inFlightRemoteCalls++;
     try {
       return await operation();
     } catch (error) {
       // Não retry em erro fatal: reemitir com a mesma key/versão falha igual
       if (isAuthError(error) || isProtocolVersionError(error)) throw error;
+      // Timeout de REQUEST não é queda de conexão: com o server stateless cada
+      // request é um POST próprio, e o SDK já abortou esse POST (no dialeto
+      // moderno, o abort É o cancelamento que o server v2.4.0 honra). Passar
+      // por reconnect() aqui só somaria dano: o close() do client aborta os
+      // requests em voo de OUTRAS chamadas — inclusive um turno de chat longo
+      // que ainda ia responder.
+      if (isTimeoutError(error)) {
+        log(`Timeout na operação remota (${error.message}). Sem reconectar — o request foi abortado, a conexão está de pé.`);
+        throw error;
+      }
       if (isConnectionError(error)) {
         log('Erro de conexão detectado. Reconectando...');
         if (!reissue) {
-          // tools/call NÃO é idempotente (ex.: chat_with_agent): em timeout ou
-          // conexão caída pós-envio o request pode ter executado no server, e
-          // reemitir duplicaria o efeito. Reconecta em background e devolve o
-          // erro ao host — quem decide reenviar é o usuário. (Decisão de
-          // revisão 02/08; a extensão Tasks da Fase 3 devolve a transparência
-          // do jeito certo.)
+          // tools/call NÃO é idempotente (ex.: chat_with_agent): com a conexão
+          // caída pós-envio o request pode ter executado no server, e reemitir
+          // duplicaria o efeito. Reconecta em background e devolve o erro ao
+          // host — quem decide reenviar é o usuário. (Decisão de revisão
+          // 02/08; a extensão Tasks da Fase 3 devolve a transparência do jeito
+          // certo.) Timeout não chega aqui: sai no ramo acima, sem reconectar.
           reconnect();
           throw error;
         }
@@ -313,6 +356,8 @@ export async function startProxy() {
         return await operation();
       }
       throw error;
+    } finally {
+      inFlightRemoteCalls--;
     }
   }
 
@@ -373,11 +418,21 @@ export async function startProxy() {
   localServer.setRequestHandler('tools/call', async (request) => {
     const { name, arguments: args } = request.params;
     try {
-      return await withRetry(() => remoteClient.callTool({ name, arguments: args }), { reissue: false });
+      // timeout explícito: o default do SDK (60s) corta antes do deadline do
+      // server e engole o TURN_TIMEOUT diagnosticável. Ver DEFAULT_CALL_TIMEOUT_MS.
+      return await withRetry(
+        () => remoteClient.callTool({ name, arguments: args }, { timeout: callTimeoutMs }),
+        { reissue: false },
+      );
     } catch (error) {
       const text = isInputRequiredError(error)
         ? `A tool "${name}" pediu input interativo (input_required) e o proxy não tem interface para responder. ` +
           'Reenvie a chamada com todos os argumentos necessários preenchidos.'
+        : isTimeoutError(error)
+        ? `A tool "${name}" passou do teto de ${Math.round(callTimeoutMs / 1000)}s do proxy e foi abortada. ` +
+          'No dialeto 2026-07-28 o abort do request é o sinal de cancelamento que o server honra, ' +
+          'então o trabalho não segue em background. ' +
+          'Se a operação é legitimamente mais longa, suba ZIHIN_MCP_CALL_TIMEOUT_MS e tente de novo.'
         : `Erro ao executar tool "${name}": ${error.message}`;
       return {
         content: [{ type: 'text', text }],
@@ -507,6 +562,49 @@ export function isInputRequiredError(error) {
 }
 
 /**
+ * Verifica se o erro é timeout de request (SDK v2 SdkError REQUEST_TIMEOUT;
+ * JSON-RPC -32001 na forma antiga).
+ *
+ * Continua classificado como erro de conexão (isConnectionError segue
+ * retornando true para estes códigos, e o diagnóstico de boot depende disso).
+ * Quem separa os dois casos é o withRetry: lá o timeout NÃO dispara
+ * reconexão, porque mata um request, não a conexão. O keepalive não passa
+ * pelo classificador — qualquer falha da sonda reconecta.
+ */
+export function isTimeoutError(error) {
+  return error?.code === 'REQUEST_TIMEOUT' || error?.code === -32001;
+}
+
+/**
+ * Resolve o teto de tools/call a partir de ZIHIN_MCP_CALL_TIMEOUT_MS.
+ *
+ * Valor inválido (não numérico, <= 0) cai no default com aviso em vez de
+ * derrubar o boot: o proxy roda dentro do config JSON de um host, onde um typo
+ * na env é erro de digitação, não motivo para o usuário ficar sem MCP.
+ *
+ * Valor válido mas fora de faixa é CLAMPADO, também com aviso:
+ *   - piso de 1s: `=300` é quase sempre alguém pensando em SEGUNDOS; sem o
+ *     piso, todo tools/call morreria em 300 ms com uma mensagem que culpa o
+ *     server pelo timeout do próprio config.
+ *   - teto de 30 min: acima de 2^31 ms o setTimeout do SDK estoura e dispara
+ *     IMEDIATAMENTE (o "timeout infinito" vira timeout instantâneo), e nenhum
+ *     host de MCP espera meia hora por um tools/call.
+ */
+export function resolveCallTimeoutMs(raw, warn = () => {}) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return DEFAULT_CALL_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    warn(`AVISO: ZIHIN_MCP_CALL_TIMEOUT_MS inválido ("${raw}") — usando o default de ${DEFAULT_CALL_TIMEOUT_MS} ms.`);
+    return DEFAULT_CALL_TIMEOUT_MS;
+  }
+  const clamped = Math.min(Math.max(parsed, MIN_CALL_TIMEOUT_MS), MAX_CALL_TIMEOUT_MS);
+  if (clamped !== parsed) {
+    warn(`AVISO: ZIHIN_MCP_CALL_TIMEOUT_MS=${parsed} fora da faixa [${MIN_CALL_TIMEOUT_MS}, ${MAX_CALL_TIMEOUT_MS}] ms — ajustado para ${clamped} ms. O valor é em MILISSEGUNDOS.`);
+  }
+  return clamped;
+}
+
+/**
  * Verifica se o erro indica problema de conexão (recuperável via reconnect).
  *
  * Sem as heurísticas 'session'/'404' da era session-based: o server de
@@ -530,6 +628,8 @@ export function isConnectionError(error) {
     case 'EPIPE':
     case 'ETIMEDOUT':
     case 'UND_ERR_CONNECT_TIMEOUT':
+    case 'UND_ERR_HEADERS_TIMEOUT': // teto próprio do fetch do Node (~300s)
+    case 'UND_ERR_BODY_TIMEOUT':
     case 'UND_ERR_SOCKET':
     case 'CONNECTION_CLOSED': // SDK v2 SdkError
     case 'SEND_FAILED':       // SDK v2 SdkError

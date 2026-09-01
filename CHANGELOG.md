@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.2.0 (2026-08-31)
+
+Sem breaking change: quem esta na 2.1.0 sobe direto (Node >= 20 desde a 2.0.0). O ganho e visivel em turno de agente longo, que antes morria no proxy aos 60s.
+
+### Compatibilizacao com o handoff de agosto/2026 do BE (issue #16)
+
+- **Teto de `tools/call` de 300s** (`ZIHIN_MCP_CALL_TIMEOUT_MS` para override), substituindo o default do SDK de 60s. O `/mcp` do server saiu do timeout global de 30s do Express e passou a ter deadline POR CANAL (chat 150s / builder 180s / async 240s); com 60s o proxy virava o cortador mais rapido da cadeia — todo turno de agente com 2+ tool_calls morria no proxy com `REQUEST_TIMEOUT` generico e o `TURN_TIMEOUT` do server, o unico erro que carrega `execution_id` + `session_id`, nunca chegava ao host. Com 300s o server ganha a corrida em todos os canais e o usuario recebe o erro investigavel. Valor invalido na env avisa e cai no default (typo no config do host nao pode deixar o usuario sem MCP).
+- **Timeout deixou de disparar reconexao** no caminho de `tools/call`/`resources`/`prompts` (novo classificador exportado `isTimeoutError`). Com o server stateless, cada request e um POST proprio: o timeout mata o request, nao a conexao. Reconectar ali era dano colateral — o `close()` do client aborta os requests em voo de OUTRAS chamadas, inclusive um turno de chat longo que ainda ia responder. O keepalive (sonda de saude) continua tratando timeout como sintoma de queda.
+- **Mensagem de timeout diz o que aconteceu com o trabalho**: no dialeto 2026-07-28 o SDK aborta o POST em vez de mandar `notifications/cancelled`, e o abort E o sinal de cancelamento que o server v2.4.0 honra — o turno cai de verdade, nao segue orfao queimando tokens. A mensagem ao host informa isso e aponta a env para subir o teto.
+- **Testes do contrato novo de `chat_with_agent`**: `execution_id` presente no SUCESSO (nao so no erro), forma de `cancelled`/`tools_used`/`tool_calls` (que deixaram de vir literalmente vazios no motor v2) e a `description` chegando inteira ao host — truncar a description repete, em outro campo, o bug de `instructions` corrigido na 2.0.1: nenhum erro visivel, "o agente so erra mais".
+
+### Resiliencia (revisao da implementacao)
+
+- **Keepalive nao derruba mais chamada em voo**: com o teto de 300s um `chat_with_agent` fica minutos em voo, sob varios ticks de keepalive. Um unico tick com falha transitoria (502 de LB, blip de rede) chamava `reconnect()`, cujo `close()` ABORTA o request em voo — e no dialeto moderno o abort e cancelamento de verdade: a sonda de saude matava o turno do usuario. Agora o tick e pulado enquanto ha request em voo (um request ativo e prova de vida melhor que a sonda; se a conexao caiu de fato, e ele quem falha primeiro e o `withRetry` reconecta).
+- **Faixa aceita para `ZIHIN_MCP_CALL_TIMEOUT_MS`**: valor fora de `[1000, 1800000]` ms e clampado com aviso. O piso pega o typo classico de pensar em SEGUNDOS (`=300` mataria todo `tools/call` em 300 ms culpando o server); o teto evita o overflow do `setTimeout` acima de 2^31 ms, em que o "timeout infinito" vira timeout instantaneo.
+- **Timeouts de headers/body do `fetch` do Node** (`UND_ERR_HEADERS_TIMEOUT`/`UND_ERR_BODY_TIMEOUT`) entram na classificacao de conexao — relevantes agora que uma chamada pode legitimamente durar minutos e encostar no teto proprio do undici (~300s).
+
+### Skills empacotadas
+
+- **Skills do plugin ressincronizadas com o BE** (`npm run sync-skills`): 5 das 6 estavam defasadas em relacao ao que o server publica em `zihin://skills/*` — tier de modelo que avisa no save e barra no `publish_agent`, `must_not_tools` como unico jeito de tirar uma tool de um agente, nomes reais das rules de CSP (campo fora do contrato e aceito em silencio e fica inerte), `origin` que nao e aplicado em runtime, e o bloco `call` do webhook (path `/api/triggers/webhook/{id}`, header de auth por trigger, canal de saida `user`). Quem instalou o pacote lia o playbook antigo.
+- **`scripts/sync-skills.mjs --from-server` voltou a funcionar**: ainda importava `@modelcontextprotocol/sdk` (SDK v1), fora das dependencias desde a 2.0.0 — o modo servidor morria com `MODULE_NOT_FOUND`.
+
+### Seguranca
+
+- **Path traversal fechado no `sync-skills.mjs --from-server`** (achado da revisao de seguranca deste PR): reviver o ramo trouxe de volta um sink em que o `name` do frontmatter — bytes vindos do server — virava componente de caminho sem validacao (`path.join(DEST, name)` + `mkdirSync` recursivo + `writeFileSync` com corpo tambem do server). Era o mesmo furo que o `install-skills.js` ja fechava com `/^[\w-]+$/` e que este script contornava com parse ad-hoc: server comprometido gravava arquivo de conteudo controlado em caminho arbitrario da maquina que roda o release — a que tem a API Key e o direito de publicar. Agora usa o `parseSkill()` compartilhado (parse ancorado no frontmatter + choke point), checa contencao dentro de `plugin/skills/`, recusa colisao de nome e so apaga o destino depois de baixar e validar tudo. Severidade baixa por escopo: `scripts/` nao esta em `files` do package.json, entao nenhum usuario do npm era exposto.
+
+### Documentacao
+
+- **Troubleshooting de timeout no README**: como distinguir o teto do proxy (mensagem propria, trabalho cancelado, sobe com `ZIHIN_MCP_CALL_TIMEOUT_MS`) do deadline do server (`TURN_TIMEOUT` com `execution_id` + `session_id` — os dois identificadores que o suporte precisa), e a nota de que o cliente MCP tem timeout proprio, independente destes.
+- **Skills empacotadas viraram item documentado de release** (CLAUDE.md): sao copia congelada do BE, entao mudanca la so chega ao usuario com republicacao no npm.
+
+### Verificado sem mudanca de codigo
+
+- **GET/DELETE respondendo 405** (server stateless): o `StreamableHTTPClientTransport` do SDK v2 trata os dois como fim de stream normal (GET) e como terminacao aceita (DELETE), sem `onerror`/`onclose` — o proxy nao entra em loop de reconexao. Nada a corrigir.
+- **Superficie e identidade**: as `instructions` do server ja sao repassadas desde a 2.0.1 (pendencia 7 da issue #16 fechada antes da promocao da 2.1.0 a `latest`).
+
 ## 2.1.0 (2026-08-02)
 
 ### Compatibilização MCP 2026-07-28 — Fase 2 (issue #6): dialeto moderno ligado

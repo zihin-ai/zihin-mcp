@@ -40,6 +40,7 @@ Para QUALQUER payload estruturado (`schema_data`, `trigger_config`, `rules` de C
 
 - IDs são UUIDs — descubra via tools `list_*` antes de operar; nunca invente IDs.
 - Respostas são JSON; `{ success: false, error }` = falha de negócio (leia o `error`, ele orienta a correção).
+- **`warnings` no sucesso não é decoração.** Uma resposta pode vir `success: true` **com** `warnings` — é a plataforma dizendo "gravei, mas isto vai te morder depois" (ex.: modelo acima do tier passa no save e barra no `publish_agent`). Trate o aviso no momento em que ele aparece.
 - `chat_with_agent` e `test_trigger` executam o agente DE VERDADE (consomem tokens do tenant e podem disparar efeitos externos).
-- Erros comuns de plano: `PLAN_LIMIT_REACHED` (máx. de agentes), `MODEL_TIER_RESTRICTED` (modelo acima do tier do plano), `QUOTA_EXCEEDED` (franquia de tokens).
+- Erros comuns de plano: `PLAN_LIMIT_REACHED` (máx. de agentes), `MODEL_TIER_RESTRICTED` (modelo acima do tier — aparece no `publish_agent`, não no save, que só avisa), `QUOTA_EXCEEDED` (franquia de tokens).
 - Resources úteis: `zihin://agents` (catálogo), `zihin://models` (modelos LLM válidos), `zihin://schema-templates` (exemplos), `zihin://schemas/{tipo}` (contratos formais).
