@@ -70,7 +70,7 @@ zihin-mcp/
 
 ## Testes
 
-61 testes — unitarios offline + integracao real contra producao (nada mockado):
+62 testes — unitarios offline + integracao real contra producao (nada mockado):
 - Unit (sem rede): classificadores de erro (formas SDK v1 e v2, regressoes nomeadas), conversores do install-skills, path traversal
 - Validacao de API Key (sem key, prefixo invalido, key invalida — exige a mensagem de classificacao de auth)
 - Tools: list, call, chat_with_agent (sessao + continuidade), tool inexistente
