@@ -207,7 +207,7 @@ Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources —
 
 ## Testes
 
-61 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
+62 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
 
 ```bash
 ZIHIN_API_KEY=zhn_live_xxx npm test

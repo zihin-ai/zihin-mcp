@@ -175,18 +175,32 @@ function formatStderr(stderrBuf) {
 
 /**
  * Spawna o processo proxy.
+ *
+ * setEncoding('utf8') nos dois streams NÃO é detalhe: sem ele o handler de
+ * 'data' recebe Buffer e cada `chunk.toString()` decodifica o chunk ISOLADO —
+ * um caractere multi-byte partido na fronteira vira U+FFFD nos dois pedaços.
+ * A resposta de tools/list tem ~200 kB e sempre chega fatiada, então o teste
+ * acusaria corrupção que o proxy não cometeu (foi exatamente o falso positivo
+ * da validação de canary da 2.2.0). Com setEncoding, o stream mantém um
+ * StringDecoder através dos chunks e segura os bytes incompletos.
  */
 function spawnProxy(env = {}) {
-  return spawn('node', [BIN], {
+  const proc = spawn('node', [BIN], {
     env: { ...process.env, ...env },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
+  proc.stdout.setEncoding('utf8');
+  proc.stderr.setEncoding('utf8');
+  return proc;
 }
 
 // ─── Testes de validação (sem conexão) ──────────────────────────────
 
 describe('validação de API Key', () => {
   it('deve falhar sem ZIHIN_API_KEY', async () => {
+    // Único spawn fora do spawnProxy: aqui o env precisa NÃO ter a key, e o
+    // spawnProxy herda process.env por construção. Só o exit code é lido —
+    // nenhum stream, nenhuma decodificação envolvida.
     const proc = spawn('node', [BIN], {
       env: { PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH },
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -200,10 +214,7 @@ describe('validação de API Key', () => {
   });
 
   it('deve falhar com API Key de prefixo inválido', async () => {
-    const proc = spawn('node', [BIN], {
-      env: { ...process.env, ZIHIN_API_KEY: 'invalid_key_123' },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const proc = spawnProxy({ ZIHIN_API_KEY: 'invalid_key_123' });
 
     let stderr = '';
     proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
@@ -217,10 +228,9 @@ describe('validação de API Key', () => {
   });
 
   it('deve falhar com API Key de prefixo válido mas inválida no server', async () => {
-    const proc = spawn('node', [BIN], {
-      env: { ...process.env, ZIHIN_API_KEY: 'zhn_live_invalida123' },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    // A mensagem esperada tem acento ("é válida"): sem a decodificação correta
+    // do stderr, o assert quebraria por U+FFFD em vez de por comportamento.
+    const proc = spawnProxy({ ZIHIN_API_KEY: 'zhn_live_invalida123' });
 
     let stderr = '';
     proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
@@ -376,6 +386,17 @@ describe('proxy stdio ↔ HTTP', () => {
       const d2 = JSON.parse(r2.result.content[0].text);
       assert.equal(d2.session_id, d1.session_id, 'session_id deve ser mantido');
       assert.ok(d2.response, 'deve retornar response na segunda mensagem');
+    });
+
+    it('payload de tools/list chega sem corrupção de UTF-8', async () => {
+      // As descriptions do server são em português e a resposta passa dos
+      // 200 kB — ou seja, sempre fatiada em vários chunks no stdio. U+FFFD
+      // aqui significa multi-byte partido e mal remontado em algum ponto da
+      // cadeia (proxy ou harness); nos dois casos o modelo lê texto corrompido.
+      const res = await request('tools/list', {});
+      const payload = JSON.stringify(res.result.tools);
+      assert.ok(!payload.includes('\uFFFD'), 'payload contém caractere de substituição (U+FFFD)');
+      assert.ok(/[ãçõéí]/.test(payload), 'sanidade: o payload deve mesmo ter acento para o teste valer');
     });
 
     it('description de chat_with_agent chega inteira ao host (sem truncar)', async () => {
