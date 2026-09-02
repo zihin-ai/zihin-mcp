@@ -103,3 +103,10 @@ Nome de skill vira componente de caminho nos writers (`path.join(base, name)`): 
 
 - `.secrets/` — credenciais CI/CD
 - `.env` — variaveis locais
+
+## MCP Registry oficial
+
+`server.json` na raiz e o registro `ai.zihin/mcp-server` no registry.modelcontextprotocol.io
+(remoto `llm.zihin.ai/mcp` + pacote npm no mesmo nome; `mcpName` no package.json e obrigatorio
+na versao publicada). A cada release: bump da versao no `server.json` (topo E `packages[0]`),
+npm publish primeiro, depois `scripts/registry-publish.sh` (checa TXT/versoes e publica). Passo a passo: `docs/registry-mcp-oficial.md`.

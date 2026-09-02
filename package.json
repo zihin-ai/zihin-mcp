@@ -1,6 +1,7 @@
 {
   "name": "@zihin/mcp-server",
-  "version": "2.2.0",
+  "version": "2.2.1",
+  "mcpName": "ai.zihin/mcp-server",
   "description": "Zihin MCP Server — stdio-to-HTTP proxy para Claude Desktop, Cursor, Claude Code e outros clientes MCP",
   "type": "module",
   "bin": {
