@@ -2,6 +2,8 @@
 
 Proxy MCP stdio-to-HTTP para a plataforma [Zihin.ai](https://zihin.ai). Conecta clientes MCP ao Zihin MCP Server via HTTP.
 
+[![smithery badge](https://smithery.ai/badge/zihin/mcp)](https://smithery.ai/servers/zihin/mcp)
+
 ```
 Cliente MCP <-stdio-> [@zihin/mcp-server] <-HTTP-> https://llm.zihin.ai/mcp
 ```
