@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.1 (2026-09-01)
+
+Sem mudanca de runtime — release de metadados para entrar no MCP Registry oficial (que alimenta o GitHub MCP Registry e a galeria MCP do VS Code).
+
+- **`mcpName: "ai.zihin/mcp-server"` no package.json**: o registry valida que o pacote npm publicado referencia o nome MCP; sem o campo, o `mcp-publisher publish` falha na validacao do pacote.
+- **`server.json` na raiz**: registro duplo no mesmo nome — o endpoint remoto (`https://llm.zihin.ai/mcp`, streamable-http, header `X-Api-Key`) e o pacote npm (proxy stdio via `ZIHIN_API_KEY`); o cliente escolhe o modo de instalacao.
+- **`scripts/registry-publish.sh`**: fluxo de publicacao com checagens (TXT batendo com a chave local, versoes npm/server.json/package.json coerentes) antes do login+publish.
+- **`docs/registry-mcp-oficial.md`**: passo a passo da publicacao (chave Ed25519 + TXT em `zihin.ai`, `mcp-publisher login dns` + `publish`), manutencao por release e alternativas de auth. `key.pem`/`mcp-registry-auth` no `.gitignore`.
+
 ## 2.2.0 (2026-08-31)
 
 Sem breaking change: quem esta na 2.1.0 sobe direto (Node >= 20 desde a 2.0.0). O ganho e visivel em turno de agente longo, que antes morria no proxy aos 60s.
