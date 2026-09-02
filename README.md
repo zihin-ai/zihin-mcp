@@ -68,7 +68,13 @@ claude mcp add zihin -e ZIHIN_API_KEY=zhn_live_xxx -- npx -y @zihin/mcp-server
 
 ### Cursor
 
-Adicione ao `.cursor/mcp.json`:
+Instalacao em 1 clique (cole na barra de endereco do navegador ou rode `open '<link>'`):
+
+```
+cursor://anysphere.cursor-deeplink/mcp/install?name=zihin&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkB6aWhpbi9tY3Atc2VydmVyIl0sImVudiI6eyJaSUhJTl9BUElfS0VZIjoiemhuX2xpdmVfeHh4In19
+```
+
+Troque `zhn_live_xxx` pela sua key nas configuracoes do MCP depois de instalar. Ou adicione ao `.cursor/mcp.json`:
 
 ```json
 {
@@ -79,6 +85,25 @@ Adicione ao `.cursor/mcp.json`:
       "env": {
         "ZIHIN_API_KEY": "zhn_live_xxx"
       }
+    }
+  }
+}
+```
+
+### VS Code (Copilot)
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Zihin_MCP-0098FF?style=flat-square&logo=githubcopilot&logoColor=white)](https://vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22zihin%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40zihin%2Fmcp-server%22%5D%2C%22env%22%3A%7B%22ZIHIN_API_KEY%22%3A%22zhn_live_xxx%22%7D%7D)
+
+O botao abre o VS Code com a config pronta (troque `zhn_live_xxx` pela sua key). Manual: comando
+`MCP: Add Server` ou `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "zihin": {
+      "command": "npx",
+      "args": ["-y", "@zihin/mcp-server"],
+      "env": { "ZIHIN_API_KEY": "zhn_live_xxx" }
     }
   }
 }
@@ -101,6 +126,14 @@ Adicione ao `~/.windsurf/mcp.json`:
   }
 }
 ```
+
+### Gemini CLI
+
+```bash
+gemini extensions install https://github.com/zihin-ai/gemini-cli-zihin
+```
+
+A extensao pede a API Key na instalacao (fica no keychain) e instala o MCP + contexto. Config manual: ver "Outros clientes MCP".
 
 ### Codex (OpenAI)
 
