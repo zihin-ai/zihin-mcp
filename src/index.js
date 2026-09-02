@@ -16,8 +16,11 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { Server } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
-const VERSION = '2.2.0';
+// Versao unica: a do package.json. Constante hardcoded driftava a cada release
+// (a 2.2.1 saiu com o handshake se apresentando como 2.2.0).
+const VERSION = createRequire(import.meta.url)('../package.json').version;
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
