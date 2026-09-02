@@ -15,9 +15,16 @@ fail() { echo "ERRO: $*" >&2; exit 1; }
 command -v mcp-publisher >/dev/null || fail "mcp-publisher nao instalado. Rode: brew install mcp-publisher"
 command -v openssl >/dev/null || fail "openssl nao encontrado"
 
-# 2. chave — se nao existe, gera e imprime o TXT para cadastrar no DNS
+# 2. chave — se nao existe, tenta restaurar do Keychain do macOS; senao gera nova
+if [ ! -f "$KEY" ] && command -v security >/dev/null; then
+  if security find-generic-password -s zihin-mcp-registry-ed25519 -w 2>/dev/null | base64 -d > "$KEY" 2>/dev/null      && openssl pkey -in "$KEY" -noout 2>/dev/null; then
+    chmod 600 "$KEY"; echo "Chave restaurada do Keychain (zihin-mcp-registry-ed25519)."
+  else
+    rm -f "$KEY"
+  fi
+fi
 if [ ! -f "$KEY" ]; then
-  echo "Chave $KEY nao existe — gerando..."
+  echo "Chave $KEY nao existe (nem no Keychain) — gerando NOVA (exigira atualizar o TXT no DNS!)..."
   openssl genpkey -algorithm Ed25519 -out "$KEY"
   PUB="$(openssl pkey -in "$KEY" -pubout -outform DER | tail -c 32 | base64)"
   echo
