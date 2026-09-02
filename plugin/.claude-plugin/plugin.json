@@ -1,7 +1,7 @@
 {
   "name": "zihin",
   "description": "Zihin Agent Builder — gerencie agentes de IA da plataforma Zihin direto do Claude Code: MCP server com 96 tools (agentes, schemas, triggers, budget, aprovações, observabilidade) + 6 skills especialistas com os playbooks e gotchas da plataforma.",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "author": {
     "name": "Zihin",
     "url": "https://zihin.ai"
@@ -9,5 +9,10 @@
   "homepage": "https://docs.zihin.ai/integrations/mcp-server",
   "repository": "https://github.com/zihin-ai/zihin-mcp",
   "license": "MIT",
-  "keywords": ["zihin", "mcp", "ai-agents", "agent-builder"]
+  "keywords": [
+    "zihin",
+    "mcp",
+    "ai-agents",
+    "agent-builder"
+  ]
 }

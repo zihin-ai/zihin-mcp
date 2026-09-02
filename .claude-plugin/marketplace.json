@@ -1,5 +1,6 @@
 {
   "name": "zihin",
+  "description": "Official Zihin.ai marketplace — manage AI agents on the Zihin platform from Claude Code (MCP server with 96 tools + 6 expert skills).",
   "owner": {
     "name": "Zihin",
     "url": "https://zihin.ai"
