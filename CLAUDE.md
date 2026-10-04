@@ -106,6 +106,13 @@ Publicacao (fluxo canary, decidido em 02/08/2026; passos 0 e 4 acrescentados em 
 
 Nome de skill vira componente de caminho nos writers (`path.join(base, name)`): todo conteudo vindo do SERVER passa pelo choke point `parseSkill()` (`/^[\w-]+$/`, parse ancorado no frontmatter) — no `install-skills.js` e no `sync-skills.mjs --from-server`. O modo local do `sync-skills.mjs` (default e `--from-dir`) NAO passa pelo `parseSkill`: e copia direta (`cpSync`) do checkout irmao, confiavel na mesma medida que o proprio repo do BE. Nao reimplementar esse parse em lugar nenhum — conteudo vindo do server e nao confiavel.
 
+## Distribuicao
+
+`docs/distribuicao.md` e o mapa unico dos canais (npm, registry oficial, marketplace do Claude Code,
+Smithery, Glama, Gemini, Docker, docs publicas): estado, evidencia, como cada um recebe atualizacao
+e o checklist por release. Publicar no registry oficial NAO propaga para o GitHub MCP Registry nem
+para a galeria do VS Code (curadoria do GitHub) — cada canal tem verificacao propria.
+
 ## Nao commitar
 
 - `.secrets/` — credenciais CI/CD
