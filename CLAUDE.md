@@ -34,7 +34,7 @@ ZIHIN_API_KEY=zhn_live_xxx npm run sync-skills -- --from-server
 ## Convencoes
 
 - Idioma: portugues brasileiro para docs, commits e comentarios
-- Formato de commit: `feat(scope): descricao` com `Co-Authored-By: Claude <modelo> <noreply@anthropic.com>`
+- Formato de commit: `feat(scope): descricao`, sem trailer de coautoria
 - Sem emojis
 - JS puro, ESM (`type: module`), Node.js >= 20 (exigido pelo SDK v2)
 - Zero devDependencies — testes usam `node:test` nativo
@@ -70,7 +70,7 @@ zihin-mcp/
 
 - `ZIHIN_API_KEY` (obrigatoria) — API Key do tenant (prefixos: `zhn_live_`, `zhn_test_`, `zhn_dev_`)
 - `ZIHIN_MCP_URL` (opcional) — URL do server (default: `https://llm.zihin.ai/mcp`)
-- `ZIHIN_MCP_CALL_TIMEOUT_MS` (opcional) — teto de um `tools/call` em ms (default: 300000, faixa 1000–1800000). Precisa ficar acima do maior deadline do server (async 240s por default; o teto operacional em producao o limita a 180s hoje) para o `TURN_TIMEOUT` chegar ao host
+- `ZIHIN_MCP_CALL_TIMEOUT_MS` (opcional) — teto de um `tools/call` em ms (default: 300000, faixa 1000–1800000). Precisa ficar acima do maior deadline do server (async 240s por default, sujeito ao teto operacional; as skills do BE 2026.10.5 informam 180s, valor nao medido nesta revisao) para o `TURN_TIMEOUT` chegar ao host
 
 ## Testes
 
@@ -93,7 +93,7 @@ GitHub Secrets:
 - `NPM_TOKEN` — legado; tokens bypass-2FA nao publicam desde 28/07/2026
 
 Publicacao (fluxo canary, decidido em 02/08/2026; passos 0 e 4 acrescentados em 04/10/2026):
-0. Na PREPARACAO da branch de release: `npm run sync-skills`, conferir o diff completo e registrar no PR o commit do BE usado como fonte. O sync e destrutivo (apaga e recria `plugin/skills/`): depois que a branch foi revisada e aprovada, NAO rodar de novo — publica-se o commit validado. Se a fonte mudar depois da aprovacao, e novo sync + nova revisao. Ainda antes de publicar: bump em `package.json`, `server.json` (topo E `packages[0]`) e `plugin/.claude-plugin/plugin.json`, CHANGELOG, e o gate de integracao LOCAL: `ZIHIN_API_KEY=... REQUIRE_INTEGRATION=1 npm test`. O `publish.yml` so roda na tag, DEPOIS do publish — nao e gate de verdade (a tag v2.2.1 nunca foi empurrada).
+0. Na PREPARACAO da branch de release: `npm run sync-skills`, conferir o diff completo e registrar no PR o commit do BE usado como fonte. O sync e destrutivo (apaga e recria `plugin/skills/`): depois que a branch foi revisada e aprovada, NAO rodar de novo — publica-se o commit validado. Se a fonte mudar depois da aprovacao, e novo sync + nova revisao. Ainda antes de publicar: bump em `package.json`, na raiz do `package-lock.json` (topo e `packages[""]`, sem alterar dependencias), `server.json` (topo E `packages[0]`) e `plugin/.claude-plugin/plugin.json`, CHANGELOG, e o gate de integracao LOCAL: `ZIHIN_API_KEY=... REQUIRE_INTEGRATION=1 npm test`. O `publish.yml` so roda na tag, DEPOIS do publish — nao e gate de verdade (a tag v2.2.1 nunca foi empurrada).
 1. `npm publish --tag next` MANUAL (passkey; npm abre o navegador — nao pedir --otp)
 2. Validacao do canary (diff de contrato proxy x servidor + client real)
 3. `npm dist-tag add @zihin/mcp-server@X.Y.Z latest` + push da tag `vX.Y.Z` (o publish.yml detecta versao ja publicada e vira no-op verde)

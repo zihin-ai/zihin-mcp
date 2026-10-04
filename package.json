@@ -8,7 +8,7 @@
     "zihin-mcp": "bin/zihin-mcp.js"
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node --test",
     "sync-skills": "node scripts/sync-skills.mjs"
   },
   "main": "src/index.js",

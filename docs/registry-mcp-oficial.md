@@ -88,8 +88,8 @@ sai com 0 se o registry devolver esse nome, essa versao, `status: "active"` e `i
 ultimos ficam em `_meta["io.modelcontextprotocol.registry/official"]`, irmao de `server`. A propagacao pode levar alguns
 segundos: ele repete ate 6 vezes com 5s de intervalo (`REGISTRY_VERIFY_ATTEMPTS` /
 `REGISTRY_VERIFY_INTERVAL_MS`) enquanto o caso for transitorio (servidor ausente, registry ainda na
-versao anterior, versao publicada mas nao `latest`, 5xx ou falha de rede; cada request tem teto de 15s) e,
-ao esgotar, diz qual foi. Resposta divergente, status inativo, JSON invalido e 4xx falham na hora.
+versao anterior, versao publicada mas nao `latest`, HTTP 404/408/429, 5xx ou falha de rede; cada request tem teto de 15s) e,
+ao esgotar, diz qual foi. Resposta divergente, status inativo, JSON invalido e os demais 4xx falham na hora.
 A busca `?search=` nao serve de verificacao: e por substring e devolve outras versoes e outros nomes.
 
 Depois (dias, nao horas): conferir a vitrine do GitHub (github.com/mcp) e a galeria do VS Code

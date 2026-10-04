@@ -170,7 +170,7 @@ Qualquer cliente que suporte o protocolo MCP via stdio pode usar este pacote. O 
 |----------|-------------|-----------|
 | `ZIHIN_API_KEY` | Sim | API Key do tenant (formato `zhn_live_*`, `zhn_test_*` ou `zhn_dev_*`) |
 | `ZIHIN_MCP_URL` | Nao | URL do MCP Server (default: `https://llm.zihin.ai/mcp`) |
-| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (chat 150s, builder 180s, demais canais 240s por default — hoje limitados a 180s pelo teto operacional da plataforma, o que inclui `chat_with_agent`) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
+| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. As skills do backend 2026.10.5 informam teto operacional de 180s para os canais externos, incluindo `chat_with_agent`; esse valor depende da configuracao do servidor. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
 
 ## Como funciona
 
@@ -282,7 +282,7 @@ A API Key foi revogada ou desativada no painel Zihin. Gere uma nova key e atuali
 O proxy espera ate 5 minutos por um `tools/call`. Quando essa mensagem aparece, o limite atingido foi o **do proxy**, nao o do server — o trabalho foi cancelado no servidor (no dialeto 2026-07-28 o abort do request e o sinal de cancelamento), entao nao ha execucao orfa queimando token.
 
 - Turno de agente legitimamente longo: suba o teto com `ZIHIN_MCP_CALL_TIMEOUT_MS` (em milissegundos, faixa `1000`–`1800000`). Acima de ~300s o proprio `fetch` do Node pode cortar antes.
-- Quem estourou primeiro foi o **server** (deadline por canal: chat 150s, builder 180s, demais canais 240s por default — hoje limitados a 180s pelo teto operacional da plataforma, o que inclui `chat_with_agent`): a mensagem que chega e outra, um erro `TURN_TIMEOUT` com `execution_id` e `session_id` — leve esses dois identificadores para o suporte, sao a correlacao com a execucao no servidor.
+- Quem estourou primeiro foi o **server** (deadline por canal: defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor): a mensagem que chega e outra, um erro `TURN_TIMEOUT` com `execution_id` e `session_id` — leve esses dois identificadores para o suporte, sao a correlacao com a execucao no servidor.
 - Cliente MCP tem timeout proprio, independente deste: se o host desistir antes, ele mostra o erro dele.
 
 ### Tools nao aparecem no cliente
@@ -292,7 +292,7 @@ O proxy espera ate 5 minutos por um `tools/call`. Quando essa mensagem aparece, 
 
 ## Limitacoes
 
-- **Turno longo tem teto**: `tools/call` espera no maximo 5 min no proxy (configuravel — ver `ZIHIN_MCP_CALL_TIMEOUT_MS`), e o server tem deadline proprio por canal (chat 150s, builder 180s, demais canais 240s por default — hoje limitados a 180s pelo teto operacional da plataforma, o que inclui `chat_with_agent`). Turno que passa disso e cancelado, nao enfileirado.
+- **Turno longo tem teto**: `tools/call` espera no maximo 5 min no proxy (configuravel — ver `ZIHIN_MCP_CALL_TIMEOUT_MS`), e o server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor). Turno que passa disso e cancelado, nao enfileirado.
 - **Streaming**: A tool `chat_with_agent` retorna a resposta completa de uma vez (sincrono). O protocolo MCP define que tools retornam um `CallToolResult` completo — nao ha suporte a streaming progressivo. Para feedback em tempo real durante execucao do agente, use o endpoint REST SSE (`POST /api/v2/agents/:agent_id/stream`).
 
 ## Requisitos
