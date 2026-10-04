@@ -55,6 +55,7 @@ zihin-mcp/
 ├── test/error-classification.test.js  <- Unit, sem rede
 ├── test/install-skills.test.js        <- Unit + e2e local, sem rede
 ├── test/registry-verify.test.js       <- Unit do verificador do registry (fetch injetado, sem rede)
+├── test/plugin-manifest.test.js       <- Unit: versoes coerentes (package/server.json/plugin.json/pin do plugin) e README do plugin
 ├── plugin/                <- Plugin Claude Code (skills empacotadas)
 ├── .github/workflows/
 │   ├── ci.yml             <- Testes OFFLINE em push/PR (sem key — nao queima turnos de agente)
@@ -74,7 +75,7 @@ zihin-mcp/
 
 ## Testes
 
-84 testes — unitarios offline + integracao real contra producao (a integracao nao usa mock):
+87 testes — unitarios offline + integracao real contra producao (a integracao nao usa mock):
 - Unit (sem rede): classificadores de erro (formas SDK v1 e v2, regressoes nomeadas), conversores do install-skills, path traversal, verificador do registry (versao anterior, outro nome, nao latest, status inativo, JSON invalido, propagacao, exit codes da CLI inclusive por symlink)
 - Validacao de API Key (sem key, prefixo invalido, key invalida — exige a mensagem de classificacao de auth)
 - Tools: list, call, chat_with_agent (sessao + continuidade), tool inexistente
@@ -93,7 +94,7 @@ GitHub Secrets:
 - `NPM_TOKEN` — legado; tokens bypass-2FA nao publicam desde 28/07/2026
 
 Publicacao (fluxo canary, decidido em 02/08/2026; passos 0 e 4 acrescentados em 04/10/2026):
-0. Na PREPARACAO da branch de release: `npm run sync-skills`, conferir o diff completo e registrar no PR o commit do BE usado como fonte. O sync e destrutivo (apaga e recria `plugin/skills/`): depois que a branch foi revisada e aprovada, NAO rodar de novo — publica-se o commit validado. Se a fonte mudar depois da aprovacao, e novo sync + nova revisao. Ainda antes de publicar: bump em `package.json`, na raiz do `package-lock.json` (topo e `packages[""]`, sem alterar dependencias), `server.json` (topo E `packages[0]`) e `plugin/.claude-plugin/plugin.json`, CHANGELOG, e o gate de integracao LOCAL: `ZIHIN_API_KEY=... REQUIRE_INTEGRATION=1 npm test`. O `publish.yml` so roda na tag, DEPOIS do publish — nao e gate de verdade (a tag v2.2.1 nunca foi empurrada).
+0. Na PREPARACAO da branch de release: `npm run sync-skills`, conferir o diff completo e registrar no PR o commit do BE usado como fonte. O sync e destrutivo (apaga e recria `plugin/skills/`): depois que a branch foi revisada e aprovada, NAO rodar de novo — publica-se o commit validado. Se a fonte mudar depois da aprovacao, e novo sync + nova revisao. Ainda antes de publicar: bump em `package.json`, na raiz do `package-lock.json` (topo e `packages[""]`, sem alterar dependencias), `server.json` (topo E `packages[0]`), `plugin/.claude-plugin/plugin.json` e o pin `@zihin/mcp-server@X.Y.Z` em `plugin/.mcp.json`, CHANGELOG, e o gate de integracao LOCAL: `ZIHIN_API_KEY=... REQUIRE_INTEGRATION=1 npm test`. O `publish.yml` so roda na tag, DEPOIS do publish — nao e gate de verdade (a tag v2.2.1 nunca foi empurrada).
 1. `npm publish --tag next` MANUAL (passkey; npm abre o navegador — nao pedir --otp)
 2. Validacao do canary (diff de contrato proxy x servidor + client real)
 3. `npm dist-tag add @zihin/mcp-server@X.Y.Z latest` + push da tag `vX.Y.Z` (o publish.yml detecta versao ja publicada e vira no-op verde)

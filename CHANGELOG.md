@@ -1,5 +1,10 @@
 # Changelog
 
+## Nao publicado
+
+- **Plugin Claude Code com versao fixa do proxy**: `plugin/.mcp.json` passa a rodar `npx -y @zihin/mcp-server@2.2.2` em vez de resolver o `latest` a cada boot. E requisito do diretorio da Anthropic (launcher sem versao exata bloqueia a submissao). Consequencia: o plugin so recebe um proxy novo quando o plugin e atualizado; o pin entra na lista de bumps de cada release e e conferido pelo `scripts/registry-publish.sh` e por `test/plugin-manifest.test.js`. O `mcp.json` da raiz (padrao Open Plugins) continua sem pin.
+- **`plugin/README.md`**: exigido pelo mesmo diretorio; declara o que o plugin executa e para onde envia dados.
+
 ## 2.2.2 (2026-10-04)
 
 Release das skills empacotadas e dos metadados, acompanhando a remocao do recurso "banco de dados do tenant" no server (zihin-agent-builder, doc `loop-review/59`). Sem breaking change.

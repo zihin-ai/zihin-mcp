@@ -2,7 +2,7 @@
   "mcpServers": {
     "zihin": {
       "command": "npx",
-      "args": ["-y", "@zihin/mcp-server"],
+      "args": ["-y", "@zihin/mcp-server@2.2.2"],
       "env": {
         "ZIHIN_API_KEY": "${ZIHIN_API_KEY}"
       }
