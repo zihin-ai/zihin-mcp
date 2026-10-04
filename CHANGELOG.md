@@ -12,10 +12,13 @@ Release das skills empacotadas e dos metadados, acompanhando a remocao do recurs
 - **Mapa de categorias**: 88 tools (consumer-ops 5, builder-read 40, builder-write 35).
 - **Conteudo novo que estava so no server**: memoria persistente, controle de engajamento e chips de resposta rapida (`quick_replies_enabled`) em `criar-agente`/`governanca-e-operacao`; edicao de schema com `base_version` (recusa com `CONFLICT` se alguem editou antes); `validate_agent_schemas` com `surface.cited_outside`; nome completo `{server}_{tool}` em `must_not_tools`; diagnostico de turno com `TIMEOUT` (`timeout_clock`) e de churn de superficie (`diagnostico`); timeout por tool (`timeout_ms` / `call_timeout_ms`); envio unico da mensagem manual e identidade em `chat_with_agent`.
 
+- **Correcao pontual na copia empacotada de `criar-agente`**: sessao sem identidade pode ser adotada pela primeira declaracao de `consumer_key`; conflito ocorre se a sessao ja pertence a outra pessoa. O campo e necessario para memoria sob admin/owner, nao para conversar. Alinhado ao runtime em producao (`ee83ebb1`) e a skill de governanca; a fonte de `criar-agente` e a descricao do server card ainda precisam dessa correcao antes do proximo sync.
+
 ### Metadados e repositorio
 
 - Desde a 2.2.1 (sem release propria): instalacao em 1 clique no README (Cursor, VS Code, Gemini CLI) e badges, `mcp.json` na raiz (padrao Open Plugins), `Dockerfile` do proxy e `glama.json` (#20–#25).
 
+- Versao raiz do `package-lock.json` alinhada a 2.2.2, sem alterar dependencias.
 - `npm test` passa a rodar no Node 22+ (`node --test test/` era lido como arquivo e falhava sem rodar nada; o glob agora e expandido pelo shell e vale no Node 20 tambem).
 - Contagens no README, no `plugin.json` e no `marketplace.json`: 88 tools / 19 resources (10 contratos formais) / 3 prompts; editor ve 48.
 
