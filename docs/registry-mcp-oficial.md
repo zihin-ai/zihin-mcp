@@ -29,7 +29,8 @@ plugin.json == `latest` do npm) e `mcpName` publicado, e so entao roda `mcp-publ
 > **Worktree ou clone novo:** `.secrets/` fica fora do git, entao so existe no checkout onde a chave
 > foi criada. Rodar o script de outro lugar sem a chave faz ele gerar uma chave NOVA — que so serve
 > depois de trocar o TXT no DNS. Para reusar a chave existente, aponte `ZIHIN_REGISTRY_KEY` para ela
-> (ex.: `ZIHIN_REGISTRY_KEY=../zihin-mcp/.secrets/registry-mcp-key.pem scripts/registry-publish.sh`).
+> (ex.: `ZIHIN_REGISTRY_KEY=../zihin-mcp/.secrets/registry-mcp-key.pem scripts/registry-publish.sh`;
+> caminho relativo vale a partir do diretorio de onde o script e chamado).
 
 Os passos manuais equivalentes:
 
@@ -83,11 +84,12 @@ node scripts/registry-verify.mjs ai.zihin/mcp-server X.Y.Z
 ```
 
 O verificador consulta a versao exata (`GET /v0.1/servers/ai.zihin%2Fmcp-server/versions/X.Y.Z`) e so
-sai com 0 se o registry devolver esse nome, essa versao e `isLatest: true` — o campo fica em
-`_meta["io.modelcontextprotocol.registry/official"]`, irmao de `server`. A propagacao pode levar alguns
+sai com 0 se o registry devolver esse nome, essa versao, `status: "active"` e `isLatest: true` — os dois
+ultimos ficam em `_meta["io.modelcontextprotocol.registry/official"]`, irmao de `server`. A propagacao pode levar alguns
 segundos: ele repete ate 6 vezes com 5s de intervalo (`REGISTRY_VERIFY_ATTEMPTS` /
-`REGISTRY_VERIFY_INTERVAL_MS`) e, ao esgotar, diz qual foi o caso: servidor ausente, registry ainda na
-versao anterior, versao publicada mas nao `latest`, resposta divergente/JSON invalido ou falha de rede.
+`REGISTRY_VERIFY_INTERVAL_MS`) enquanto o caso for transitorio (servidor ausente, registry ainda na
+versao anterior, versao publicada mas nao `latest`, 5xx ou falha de rede; cada request tem teto de 15s) e,
+ao esgotar, diz qual foi. Resposta divergente, status inativo, JSON invalido e 4xx falham na hora.
 A busca `?search=` nao serve de verificacao: e por substring e devolve outras versoes e outros nomes.
 
 Depois (dias, nao horas): conferir a vitrine do GitHub (github.com/mcp) e a galeria do VS Code

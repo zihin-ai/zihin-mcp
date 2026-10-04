@@ -200,7 +200,7 @@ npx @zihin/mcp-server install-skills --client claude --bundled
 
 Opcoes: `--client claude|cursor|windsurf|codex|all` · `--dir <raiz-do-projeto>` · `--global` (so claude, instala em `~/.claude/skills`) · `--bundled` (offline).
 
-As skills sao buscadas do server vivo (sempre atualizadas). Se a busca falhar (rede, server fora do ar, key recusada) ou voltar vazia, o comando avisa e instala as copias empacotadas no npm — as mesmas do `--bundled`, congeladas na data da release; a saida informa a fonte usada (`fonte: server` ou `fonte: bundled`). Sem `ZIHIN_API_KEY` e sem `--bundled` nao ha fallback: o comando encerra com erro. No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
+As skills sao buscadas do server vivo (sempre atualizadas). Se a busca falhar (rede, server fora do ar, key recusada) ou voltar vazia, o comando instala as copias empacotadas no npm — as mesmas do `--bundled`, congeladas na data da release. Na falha ele imprime um aviso; nos dois casos a saida informa a fonte usada (`fonte: server` ou `fonte: bundled`). Sem `ZIHIN_API_KEY` e sem `--bundled` nao ha fallback: o comando encerra com erro. No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
 
 ### Plugin Claude Code (MCP + skills em um comando)
 
@@ -243,7 +243,7 @@ Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources —
 
 ## Testes
 
-75 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills, verificador do registry) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
+84 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills, verificador do registry) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
 
 ```bash
 ZIHIN_API_KEY=zhn_live_xxx npm test

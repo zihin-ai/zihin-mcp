@@ -58,7 +58,7 @@ zihin-mcp/
 ├── plugin/                <- Plugin Claude Code (skills empacotadas)
 ├── .github/workflows/
 │   ├── ci.yml             <- Testes OFFLINE em push/PR (sem key — nao queima turnos de agente)
-│   └── publish.yml        <- Gate de integracao real (REQUIRE_INTEGRATION=1) em tag v*; publish e no-op se a versao ja esta no npm
+│   └── publish.yml        <- Reexecuta a integracao real (REQUIRE_INTEGRATION=1) em tag v*, DEPOIS do publish manual — nao e o gate; publish e no-op se a versao ja esta no npm
 ├── README.md
 ├── CHANGELOG.md
 ├── LICENSE (MIT)
@@ -74,8 +74,8 @@ zihin-mcp/
 
 ## Testes
 
-75 testes — unitarios offline + integracao real contra producao (a integracao nao usa mock):
-- Unit (sem rede): classificadores de erro (formas SDK v1 e v2, regressoes nomeadas), conversores do install-skills, path traversal, verificador do registry (versao anterior, outro nome, nao latest, JSON invalido, propagacao)
+84 testes — unitarios offline + integracao real contra producao (a integracao nao usa mock):
+- Unit (sem rede): classificadores de erro (formas SDK v1 e v2, regressoes nomeadas), conversores do install-skills, path traversal, verificador do registry (versao anterior, outro nome, nao latest, status inativo, JSON invalido, propagacao, exit codes da CLI inclusive por symlink)
 - Validacao de API Key (sem key, prefixo invalido, key invalida — exige a mensagem de classificacao de auth)
 - Tools: list, call, chat_with_agent (sessao + continuidade), tool inexistente
 - Resources: list (pisos + invariante de categoria, nao contagem exata), read

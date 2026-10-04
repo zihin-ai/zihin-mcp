@@ -5,8 +5,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# ZIHIN_REGISTRY_KEY relativo vale a partir de onde o script foi chamado, nao
+# da raiz do repo — senao o caminho erra em silencio e uma chave nova e gerada.
+CALLER_PWD="$PWD"
 cd "$ROOT"
 KEY="${ZIHIN_REGISTRY_KEY:-$ROOT/.secrets/registry-mcp-key.pem}"
+case "$KEY" in /*) ;; *) KEY="$CALLER_PWD/$KEY" ;; esac
 DOMAIN="zihin.ai"
 # O diretorio da chave (.secrets/ fica fora do git) pode nao existir num clone
 # novo ou numa worktree: sem ele, gerar ou restaurar a chave falha na escrita.
