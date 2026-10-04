@@ -23,9 +23,16 @@ fail() { echo "ERRO: $*" >&2; exit 1; }
 command -v mcp-publisher >/dev/null || fail "mcp-publisher nao instalado. Rode: brew install mcp-publisher"
 command -v openssl >/dev/null || fail "openssl nao encontrado"
 
-# 2. chave — se nao existe, gera e imprime o TXT para cadastrar no DNS
+# 2. chave — se nao existe, tenta restaurar do Keychain do macOS; senao gera nova
+if [ ! -f "$KEY" ] && command -v security >/dev/null; then
+  if security find-generic-password -s zihin-mcp-registry-ed25519 -w 2>/dev/null | base64 -d > "$KEY" 2>/dev/null      && openssl pkey -in "$KEY" -noout 2>/dev/null; then
+    chmod 600 "$KEY"; echo "Chave restaurada do Keychain (zihin-mcp-registry-ed25519)."
+  else
+    rm -f "$KEY"
+  fi
+fi
 if [ ! -f "$KEY" ]; then
-  echo "Chave $KEY nao existe — gerando..."
+  echo "Chave $KEY nao existe (nem no Keychain) — gerando NOVA (exigira atualizar o TXT no DNS!)..."
   openssl genpkey -algorithm Ed25519 -out "$KEY"
   PUB="$(openssl pkey -in "$KEY" -pubout -outform DER | tail -c 32 | base64)"
   echo
@@ -40,13 +47,15 @@ TXT="$(dig TXT "$DOMAIN" +short 2>/dev/null | tr -d '"' | grep '^v=MCPv1' || tru
 [ -n "$TXT" ] || fail "TXT v=MCPv1 nao visivel no DNS de ${DOMAIN} (propagacao pendente?)"
 echo "$TXT" | grep -qF "p=${PUB}" || fail "TXT no DNS nao bate com a chave local ${KEY}: DNS tem '${TXT}'"
 
-# 4. versoes coerentes: server.json (topo e packages[0]) == package.json == npm publicado
-read -r V_PKG V_SRV V_SRV_PKG MCP_NAME V_PLUGIN <<<"$(node -e '
+# 4. versoes coerentes: server.json (topo e packages[0]) == package.json == plugin.json == pin do plugin/.mcp.json == npm publicado
+read -r V_PKG V_SRV V_SRV_PKG MCP_NAME V_PLUGIN PIN_PLUGIN <<<"$(node -e '
   const p = require("./package.json"), s = require("./server.json"), g = require("./plugin/.claude-plugin/plugin.json");
-  console.log(p.version, s.version, s.packages[0].version, p.mcpName, g.version);
+  const m = require("./plugin/.mcp.json");
+  const pin = (m.mcpServers.zihin.args.find((a) => a.startsWith("@zihin/mcp-server")) || "").split("@")[2] || "sem-pin";
+  console.log(p.version, s.version, s.packages[0].version, p.mcpName, g.version, pin);
 ')"
-[ "$V_PKG" = "$V_SRV" ] && [ "$V_PKG" = "$V_SRV_PKG" ] && [ "$V_PKG" = "$V_PLUGIN" ] \
-  || fail "versoes divergem: package.json=$V_PKG server.json=$V_SRV packages[0]=$V_SRV_PKG plugin.json=$V_PLUGIN"
+[ "$V_PKG" = "$V_SRV" ] && [ "$V_PKG" = "$V_SRV_PKG" ] && [ "$V_PKG" = "$V_PLUGIN" ] && [ "$V_PKG" = "$PIN_PLUGIN" ] \
+  || fail "versoes divergem: package.json=$V_PKG server.json=$V_SRV packages[0]=$V_SRV_PKG plugin.json=$V_PLUGIN pin do plugin/.mcp.json=$PIN_PLUGIN"
 V_NPM="$(npm view @zihin/mcp-server version 2>/dev/null || true)"
 [ "$V_NPM" = "$V_PKG" ] || fail "npm tem $V_NPM, esperado $V_PKG — rode npm publish antes"
 NPM_MCPNAME="$(npm view @zihin/mcp-server mcpName 2>/dev/null || true)"
