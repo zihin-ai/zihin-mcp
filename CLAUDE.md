@@ -19,8 +19,9 @@ Cliente MCP <-stdio-> [Proxy local (src/index.js)] <-HTTP-> https://llm.zihin.ai
 ## Comandos
 
 ```bash
-# Rodar testes (requer API Key valida)
-ZIHIN_API_KEY=zhn_live_xxx npm test
+# Rodar testes — sem key roda a suite offline; com key roda tambem a integracao (1 turno REAL de LLM)
+npm test
+ZIHIN_API_KEY=zhn_live_xxx REQUIRE_INTEGRATION=1 npm test
 
 # Rodar o proxy localmente
 ZIHIN_API_KEY=zhn_live_xxx node bin/zihin-mcp.js
@@ -88,10 +89,12 @@ GitHub Secrets:
 - `ZIHIN_API_KEY` — key para o gate de integracao (SO no publish.yml; o ci.yml de push/PR roda offline)
 - `NPM_TOKEN` — legado; tokens bypass-2FA nao publicam desde 28/07/2026
 
-Publicacao (fluxo canary, decidido em 02/08/2026):
+Publicacao (fluxo canary, decidido em 02/08/2026; passos 0 e 4 acrescentados em 04/10/2026):
+0. Antes de publicar: `npm run sync-skills` (conferir o diff), bump em `package.json`, `server.json` (topo E `packages[0]`) e `plugin/.claude-plugin/plugin.json`, CHANGELOG, e o gate de integracao LOCAL: `ZIHIN_API_KEY=... REQUIRE_INTEGRATION=1 npm test`. O `publish.yml` so roda na tag, DEPOIS do publish — nao e gate de verdade (a tag v2.2.1 nunca foi empurrada).
 1. `npm publish --tag next` MANUAL (passkey; npm abre o navegador — nao pedir --otp)
 2. Validacao do canary (diff de contrato proxy x servidor + client real)
 3. `npm dist-tag add @zihin/mcp-server@X.Y.Z latest` + push da tag `vX.Y.Z` (o publish.yml detecta versao ja publicada e vira no-op verde)
+4. So depois do `latest`: `scripts/registry-publish.sh` (ele compara com `npm view ... version`, que e o dist-tag `latest`)
 
 ## Skills empacotadas
 

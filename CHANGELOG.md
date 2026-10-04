@@ -2,15 +2,19 @@
 
 ## 2.2.2 (2026-10-04)
 
-Sem mudanca de runtime do proxy — release das skills empacotadas e dos metadados, acompanhando a remocao do recurso "banco de dados do tenant" no server (zihin-agent-builder, doc `loop-review/59`).
+Release das skills empacotadas e dos metadados, acompanhando a remocao do recurso "banco de dados do tenant" no server (zihin-agent-builder, doc `loop-review/59`). Sem breaking change.
+
+**Uma mudanca de runtime**: o proxy passa a informar a versao real (lida do `package.json`) no handshake (`serverInfo`/`clientInfo`) e no banner — a 2.2.1 se apresentava como 2.2.0 (#24).
 
 ### Skills empacotadas (ressincronizadas com o server)
 
 - **Sem banco do tenant**: `db_config`, conexoes (`list_connections` e afins) e o trigger `db_event` sairam das skills `tools-de-agente`, `criar-agente` e `triggers-e-canais`. O server recusa `db_config` e nao lista mais as 9 tools de conexao — a skill antiga ensinava um caminho que nao existe mais. Acesso a banco de dados agora e via `api_config` ou um MCP server proprio.
 - **Mapa de categorias**: 88 tools (consumer-ops 5, builder-read 40, builder-write 35).
-- **Conteudo novo que estava so no server**: memoria persistente e controle de engajamento (`criar-agente`, `governanca-e-operacao`), diagnostico de turno com `TIMEOUT` (`timeout_clock`) e de churn de superficie (`diagnostico`), timeout por tool (`timeout_ms` / `call_timeout_ms`), envio unico da mensagem manual e identidade em `chat_with_agent`.
+- **Conteudo novo que estava so no server**: memoria persistente, controle de engajamento e chips de resposta rapida (`quick_replies_enabled`) em `criar-agente`/`governanca-e-operacao`; edicao de schema com `base_version` (recusa com `CONFLICT` se alguem editou antes); `validate_agent_schemas` com `surface.cited_outside`; nome completo `{server}_{tool}` em `must_not_tools`; diagnostico de turno com `TIMEOUT` (`timeout_clock`) e de churn de superficie (`diagnostico`); timeout por tool (`timeout_ms` / `call_timeout_ms`); envio unico da mensagem manual e identidade em `chat_with_agent`.
 
-### Metadados
+### Metadados e repositorio
+
+- Desde a 2.2.1 (sem release propria): instalacao em 1 clique no README (Cursor, VS Code, Gemini CLI) e badges, `mcp.json` na raiz (padrao Open Plugins), `Dockerfile` do proxy e `glama.json` (#20–#25).
 
 - `npm test` passa a rodar no Node 22+ (`node --test test/` era lido como arquivo e falhava sem rodar nada; o glob agora e expandido pelo shell e vale no Node 20 tambem).
 - Contagens no README, no `plugin.json` e no `marketplace.json`: 88 tools / 19 resources (10 contratos formais) / 3 prompts; editor ve 48.

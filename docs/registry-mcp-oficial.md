@@ -80,7 +80,9 @@ da para nomear o server a partnerships@github.com.
 ## Manutencao por release
 
 A cada release do pacote: atualizar a versao no `server.json` (campo `version` do topo E de
-`packages[0]`), publicar no npm primeiro, e rodar `mcp-publisher login dns` + `publish` de novo.
+`packages[0]`) e no `plugin/.claude-plugin/plugin.json`, publicar no npm e PROMOVER a `latest`
+(`npm dist-tag add ...@X.Y.Z latest`) primeiro — o script compara com o `latest` —, e so entao rodar
+`scripts/registry-publish.sh` (`mcp-publisher login dns` + `publish`).
 Candidato a automacao no `publish.yml` via GitHub Actions (ha guia oficial:
 modelcontextprotocol.io/registry/github-actions) — exige a chave privada como secret do repo.
 
