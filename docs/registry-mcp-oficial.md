@@ -1,9 +1,13 @@
 # Publicacao no MCP Registry oficial
 
 Como publicar o `ai.zihin/mcp-server` no [MCP Registry](https://registry.modelcontextprotocol.io)
-(`server.json` na raiz deste repo). Um publish cobre tres canais de uma vez: o registry oficial, o
-**GitHub MCP Registry** (github.com/mcp, consumido pelo Copilot) e a **galeria MCP do VS Code** —
-ambos sincronizam do registry automaticamente, sem submissao separada.
+(`server.json` na raiz deste repo). O publish cobre UM canal: o registry oficial.
+
+O registry oficial fornece metadados a agregadores, e cada agregador decide o que exibe. O
+**GitHub MCP Registry** (github.com/mcp, consumido pelo Copilot) e descrito pelo proprio GitHub como
+uma lista curada, e a **galeria MCP do VS Code** depende dele. Publicar aqui NAO nos coloca nesses
+dois: em 04/10/2026, 33 dias depois da primeira publicacao, o Zihin seguia ausente de ambos
+(issue #27). Cada destino tem verificacao propria em `docs/distribuicao.md`.
 
 > O registry esta em "preview": breaking changes ou reset de dados podem ocorrer antes do GA.
 > Schema em uso: `2025-12-11`.
@@ -92,9 +96,10 @@ versao anterior, versao publicada mas nao `latest`, HTTP 404/408/429, 5xx ou fal
 ao esgotar, diz qual foi. Resposta divergente, status inativo, JSON invalido e os demais 4xx falham na hora.
 A busca `?search=` nao serve de verificacao: e por substring e devolve outras versoes e outros nomes.
 
-Depois (dias, nao horas): conferir a vitrine do GitHub (github.com/mcp) e a galeria do VS Code
-(painel Extensions, busca `@mcp`). A vitrine curada do GitHub e editorial — se nao aparecer,
-da para nomear o server a partnerships@github.com.
+A vitrine do GitHub (github.com/mcp) e a galeria do VS Code (painel Extensions, busca `@mcp`) nao
+sao consequencia deste publish: a curadoria e do GitHub. Para conferir a presenca, consultar
+`https://api.mcp.github.com/v0.1/servers?search=zihin`; para pedir a inclusao, nomear o server a
+partnerships@github.com. O acompanhamento esta na issue #27 e em `docs/distribuicao.md`.
 
 ## Manutencao por release
 
