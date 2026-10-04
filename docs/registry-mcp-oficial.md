@@ -21,14 +21,15 @@ O registry valida que o pacote npm referencia o nome MCP — por isso o `package
 ## Atalho: o script
 
 `scripts/registry-publish.sh` faz o fluxo inteiro com as checagens de pre-requisito: cria o diretorio
-da chave se faltar, gera a chave e imprime o TXT se a chave (`.secrets/registry-mcp-key.pem`) nao existir;
+da chave se faltar; se a chave (`.secrets/registry-mcp-key.pem`) nao existir, tenta restaura-la do Keychain do
+macOS (item `zihin-mcp-registry-ed25519`) e so gera uma chave nova, imprimindo o TXT, como ultimo recurso;
 senao valida TXT no ar (e batendo com a chave local), versoes coerentes (package.json == server.json ==
 plugin.json == `latest` do npm) e `mcpName` publicado, e so entao roda `mcp-publisher login dns` +
 `publish` + verificacao (nome e versao exatos com `isLatest=true`).
 
 > **Worktree ou clone novo:** `.secrets/` fica fora do git, entao so existe no checkout onde a chave
-> foi criada. Rodar o script de outro lugar sem a chave faz ele gerar uma chave NOVA — que so serve
-> depois de trocar o TXT no DNS. Para reusar a chave existente, aponte `ZIHIN_REGISTRY_KEY` para ela
+> foi criada. Rodar o script de outro lugar sem a chave faz ele restaurar do Keychain do macOS; sem
+> Keychain (outra maquina, Linux), ele gera uma chave NOVA — que so serve depois de trocar o TXT no DNS. Para reusar a chave existente, aponte `ZIHIN_REGISTRY_KEY` para ela
 > (ex.: `ZIHIN_REGISTRY_KEY=../zihin-mcp/.secrets/registry-mcp-key.pem scripts/registry-publish.sh`;
 > caminho relativo vale a partir do diretorio de onde o script e chamado).
 
