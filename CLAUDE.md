@@ -70,7 +70,7 @@ zihin-mcp/
 
 - `ZIHIN_API_KEY` (obrigatoria) — API Key do tenant (prefixos: `zhn_live_`, `zhn_test_`, `zhn_dev_`)
 - `ZIHIN_MCP_URL` (opcional) — URL do server (default: `https://llm.zihin.ai/mcp`)
-- `ZIHIN_MCP_CALL_TIMEOUT_MS` (opcional) — teto de um `tools/call` em ms (default: 300000, faixa 1000–1800000). Precisa ficar acima do maior deadline do server (async 240s) para o `TURN_TIMEOUT` chegar ao host
+- `ZIHIN_MCP_CALL_TIMEOUT_MS` (opcional) — teto de um `tools/call` em ms (default: 300000, faixa 1000–1800000). Precisa ficar acima do maior deadline do server (async 240s por default; o teto operacional em producao o limita a 180s hoje) para o `TURN_TIMEOUT` chegar ao host
 
 ## Testes
 

@@ -18,7 +18,7 @@ Workflow universal: leia o contrato (`zihin://schemas/api_config`) → monte →
 3. Auth canônico é `{ "prefix": "Bearer"|"Basic", "secret_ref": "<nome-do-secret>" }` — o campo `type` é DEPRECATED. Para Basic, armazene o secret já em base64.
 4. `tool_definition.description` mínimo 20 chars e deve dizer O QUE a tool faz e O QUE retorna (o LLM do agente decide por ela).
 5. Recomendado: UMA tool por schema (uma operação por api_config) — múltiplos endpoints exigem action routing.
-6. **Timeout**: api_config → `editor_schema.api.timeout_ms` (1000-120000, default 30000); MCP externo → `config.call_timeout_ms` por chamada de tool (≠ `config.timeout`, que é só conexão + listagem). Os dois alimentam o teto do executor. Retry de timeout é opt-in, não default (doc loop-review/34).
+6. **Timeout**: api_config → `editor_schema.api.timeout_ms` (1000-120000, default 30000); MCP externo → `config.call_timeout_ms` por chamada de tool (≠ `config.timeout`, que é só conexão + listagem). Os dois alimentam o teto do executor. Retry de timeout é opt-in, não default: contra servidor pendurado, repetir só empilha espera.
 
 **Secrets**: crie antes com `create_secret` (o valor em claro aparece SÓ na criação — guarde na hora). Liste com `list_secrets` (valores nunca expostos). Referencie via `secret_ref`.
 

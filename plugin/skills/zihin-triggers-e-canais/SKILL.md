@@ -48,7 +48,7 @@ POST {LLM_BASE_URL}/api/triggers/webhook/{trigger_id}
 ```
 
 - `output.channel`: `silent` (só grava), `webhook` (POST simples em `output.webhook_url`), `callback` (`output.callback` completo com auth + `split_config` p/ chunkar resposta longa em WhatsApp/SMS), `user` (entrega na sessão do chat nativo + push proativo — ver §Canal de saída). `agent` existe no enum mas está **reservado / NOT_IMPLEMENTED** (só loga warn).
-- `session_strategy`: `new` | `persistent`.
+- `session_strategy`: objeto `{ "mode": "new" }` (o default) — cada execução abre uma sessão nova; schedule não continua a conversa da execução anterior. Para o agente lembrar entre execuções, use a memória persistente (`memory_enabled`) ou entregue o resultado numa conversa (`output.channel="user"`).
 - Overlap policy: se a execução anterior ainda roda, o tick é pulado (não empilha).
 - `get_scheduler_status` mostra os cron jobs ativos.
 
