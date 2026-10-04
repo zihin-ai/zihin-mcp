@@ -217,11 +217,11 @@ As capabilities disponiveis dependem do role da API Key, controlado server-side:
 
 | Role | Tools | Resources | Prompts |
 |------|-------|-----------|---------|
-| `admin` | Todas (96) | 20 | 3 |
-| `editor` | Leitura (52 — writes nao sao listadas) | 20 | 3 |
+| `admin` | Todas (88) | 19 | 3 |
+| `editor` | Leitura (48 — writes nao sao listadas) | 19 | 3 |
 | `member` | Subset consumer (5) | - | - |
 
-Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources — 3 catalogos + 11 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
+Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources — 3 catalogos + 10 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
 
 ### Resources disponiveis
 
@@ -230,7 +230,7 @@ Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources —
 | `zihin://agents` | Lista de agentes do tenant |
 | `zihin://models` | Catalogo de modelos LLM disponiveis |
 | `zihin://schema-templates` | Templates de schema para configuracao |
-| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (11 tipos) |
+| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
 | `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
 
 ### Prompts disponiveis

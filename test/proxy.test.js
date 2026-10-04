@@ -588,7 +588,7 @@ describe('proxy stdio ↔ HTTP', () => {
     });
 
     it('instructions do server chegam ao host local (ponteiro para as skills)', async () => {
-      // O instructions ensina o modelo a operar as 96 tools e aponta para as
+      // O instructions ensina o modelo a operar as tools e aponta para as
       // skills zihin://skills/*. Sem repassá-lo, o pacote opera às cegas —
       // o usuário não vê erro, só "o agente erra mais".
       const res = await request('initialize', {

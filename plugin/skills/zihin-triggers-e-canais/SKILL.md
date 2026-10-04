@@ -5,7 +5,7 @@ description: Playbook de triggers do Zihin — webhook (WhatsApp/Slack/Teams/n8n
 
 # Triggers e canais
 
-Contrato formal: `zihin://schemas/trigger_config` (granularidade de ENTIDADE — no `create_trigger` você envia só `agent_id`, `name`, `trigger_type` e `trigger_config`; `tenant_id`/ids são injetados pelo servidor). Tipos: `webhook`, `schedule`, `email`, `db_event`.
+Contrato formal: `zihin://schemas/trigger_config` (granularidade de ENTIDADE — no `create_trigger` você envia só `agent_id`, `name`, `trigger_type` e `trigger_config`; `tenant_id`/ids são injetados pelo servidor). Tipos: `webhook`, `schedule`, `email`.
 
 `create_trigger`/`get_trigger`/`list_triggers` de webhook retornam um bloco **`call`** com a **URL chamável + qual header de auth** enviar (ver §Como chamar). ⚠️ NÃO retornam a API Key — a key é do tenant, gerada à parte; entregue a URL + a key ao usuário.
 
@@ -58,7 +58,7 @@ POST {LLM_BASE_URL}/api/triggers/webhook/{trigger_id}
 
 ## Canal de saída (`output`) — a resposta pode sair por canal ≠ da entrada
 
-O bloco `output` decide **para onde vai o resultado depois que o agente roda** — é independente de por onde a mensagem entrou. Assim um cron pode responder no WhatsApp, um evento de banco pode empurrar um card no chat, etc. Enum de `output.channel` no contrato `zihin://schemas/trigger_config`: `silent | webhook | callback | user` (`agent` reservado, não implementado).
+O bloco `output` decide **para onde vai o resultado depois que o agente roda** — é independente de por onde a mensagem entrou. Assim um cron pode responder no WhatsApp, um webhook pode empurrar um card no chat, etc. Enum de `output.channel` no contrato `zihin://schemas/trigger_config`: `silent | webhook | callback | user` (`agent` reservado, não implementado).
 
 **O que cada trigger REALMENTE implementa hoje** (não confie só no enum — o wiring difere por tipo):
 
@@ -66,7 +66,6 @@ O bloco `output` decide **para onde vai o resultado depois que o agente roda** �
 |---|---|
 | **schedule** | `silent` · `webhook` (`output.webhook_url`) · `callback` (`output.callback` + `split_config`) · `user` |
 | **webhook** | resposta **síncrona** via `response_adapter` (sync) ou `execution.callback` (async). O bloco `output` só implementa **`user`** — os demais valores são ignorados aqui. |
-| **db_event** | não tem resposta síncrona: default `silent`; o bloco `output` só implementa **`user`**. |
 
 **`channel: "user"`** (SPEC D / #9) — entrega a resposta **na sessão do chat nativo** de um usuário-alvo e dispara push proativo:
 ```json
@@ -77,8 +76,8 @@ O bloco `output` decide **para onde vai o resultado depois que o agente roda** �
 }
 ```
 - `target.field`: `user_id` (um `tenant_user`, exige UUID válido) ou `consumer_key` (registro em `agent_consumers`).
-- `target.value`: em **webhook** resolve template do `webhookContext` (ex: `{{idUsuario}}`); em **db_event** usa `{{record.*}}`/`{{old.*}}`.
-- ⚠️ **Gotcha do schedule**: o cron não tem contexto de evento (`context` vazio), então `target.value` com `{{template}}` **não resolve e é pulado silenciosamente** — no schedule use um `user_id`/`consumer_key` **literal**. Alvo dinâmico só funciona em webhook/db_event.
+- `target.value`: em **webhook** resolve template do `webhookContext` (ex: `{{idUsuario}}`).
+- ⚠️ **Gotcha do schedule**: o cron não tem contexto de evento (`context` vazio), então `target.value` com `{{template}}` **não resolve e é pulado silenciosamente** — no schedule use um `user_id`/`consumer_key` **literal**. Alvo dinâmico só funciona em webhook.
 - `push` é opcional; sem ele o fallback é o nome do agente / 1ª linha da resposta.
 - Entrega é fail-soft (nunca derruba o turno). Denylist F5-B (`do_not_contact`) do consumer é respeitada.
 

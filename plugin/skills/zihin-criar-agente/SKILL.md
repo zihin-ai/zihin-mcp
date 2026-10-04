@@ -49,11 +49,11 @@ O formato legado com `instructions` na raiz NÃO funciona. Contrato formal: `zih
 
 ## Passo 4 — Tools (opcional)
 
-APIs externas, SQL ou MCP servers → leia `zihin://skills/tools-de-agente`.
+APIs externas ou MCP servers → leia `zihin://skills/tools-de-agente`.
 
 ## Passo 5 — Validar TUDO antes de publicar
 
-1. `validate_agent_schemas` — valida todos os schemas do agente de uma vez.
+1. `validate_agent_schemas` — valida todos os schemas do agente de uma vez e cruza persona/skills/workflow com a superfície efetiva: `surface.cited_outside` lista toda tool que o texto ensina mas a CSP bloqueia (ou que o servidor MCP não oferece). Zere essa lista antes de publicar — senão o agente vai chamar a tool, receber "not a valid tool" e dizer ao usuário que a ferramenta está indisponível.
 2. `list_agent_tools` — confere que cada tool resolve (`resolved` vs `error`).
 3. `get_agent_full` — revisão final da configuração completa.
 
@@ -65,9 +65,20 @@ APIs externas, SQL ou MCP servers → leia `zihin://skills/tools-de-agente`.
 
 - Chat nativo (chat.zihin.ai): `update_agent` com `chat_enabled: true` (gate por agente, default false — sem isso o usuário final não vê o agente no chat).
 - Webhook/cron/e-mail: leia `zihin://skills/triggers-e-canais`.
+- Chips de resposta rápida (`suggest_replies`, até 4 opções curtas ao fim do turno): saem no chat nativo e na integração `/stream` que declara `capabilities: { blocks: ["quick_replies"] }`. Ligados por padrão; `update_agent` com `quick_replies_enabled: false` desliga (cada uso custa uma chamada extra ao modelo). Webhook/WhatsApp nunca recebem a tool.
+
+## Passo 8 — Memória persistente e engajamento (opcional)
+
+- `update_agent` com `memory_enabled: true` carrega `save_memory`/`recall_memory`/`forget_memory` e liga o auto-recall. Default false; skill NÃO habilita memória (o acoplamento com `skill_config` morreu em mai/2026). Ligar o flag invalida a superfície de tools do agente (a tool aparece no turno seguinte).
+- Contrato de escrita (instrua na persona — o runtime valida só a FORMA): grave DEPOIS de responder, um fato por chave; `fact`/`preference`/`instruction` exigem `user_statement` (a frase exata do usuário — inferência é rejeitada); `context` é observação do agente e **expira em 7 dias**; chave `snake_case` 3–50 chars (prefixos `lead_`/`pref_`/`instr_`); prefixo `_` é reservado da plataforma; cartão NUNCA, CPF só como `fact` declarado.
+- Dois caminhos de leitura: **auto-recall** (todo turno, só `source=user` + fact/preference/instruction, teto 1500 chars) e **`recall_memory`** (o agente pede; é o ÚNICO caminho para `context`). Máximo 50 memórias vivas por escopo (FIFO).
+- Identidade separa as pessoas: sem `user_key` resolvido não há memória (falha fechada). Em `chat_with_agent`, key admin/owner **exige `consumer_key`**; key `member` já identifica (e não pode falar por outra pessoa); key `editor` tem o campo **ignorado**. Sob admin/owner a identidade é DECLARADA: reusar um `session_id` de outra pessoa — ou de uma conversa sem identidade — é recusado com `CONFLICT`; para uma pessoa nova, omita o `session_id`. Em webhook, garanta `idUsuario`/`_waId`/telefone no `context_mapping`.
+- NÃO use memória para estado de máquina: encerrar o engajamento com uma pessoa é `engagement_control_enabled: true` no agente (ele ganha `end_engagement`, que só restringe) ou `set_engagement_control` pelo operador; suspender é `set_session_control`; bloquear no tenant é `set_consumer_denylist`. O padrão `save_memory('_session_control')` está morto.
+- Operar: `list_agent_memory` (filtra chaves `_` e expiradas; não expõe proveniência) e `delete_agent_memory` (soft delete, com `scope`). Contrato completo: `docs/technical/MEMORY-CONTRACT.md`; engajamento: `docs/technical/ENGAGEMENT-CONTROL.md`.
 
 ## Depois de publicado
 
 - Teste real: `chat_with_agent` (consome tokens; reutilize o `session_id` retornado para manter contexto).
 - Iterar: `update_agent`/`update_schema` + `publish_agent` de novo. Histórico/rollback: `list_versions`, `list_snapshots`, `rollback_version`.
+- Editar schema de agente em produção (ou com mais de um editor): `get_schema` → guarde a `version` → `update_schema` com `base_version` = essa versão e um `changelog` dizendo o porquê. Se outra pessoa gravou no meio, volta `CONFLICT` com a versão atual e **nada é gravado** — releia, veja a diferença com `compare_versions` e reaplique. `schema_data` substitui o documento inteiro.
 - Clonar como base: `clone_agent` (clone nasce em draft; triggers clonados desabilitados).
