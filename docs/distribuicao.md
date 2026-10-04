@@ -39,19 +39,19 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
 |---|---|---|---|---|
 | npm | `@zihin/mcp-server` | Confirmado | 2.2.2 (`latest` e `next`) | `npm publish --tag next` manual + `npm dist-tag add ... latest` |
 | MCP Registry oficial | `ai.zihin/mcp-server` em registry.modelcontextprotocol.io | Confirmado | 2.2.2, `active`, `isLatest` | `scripts/registry-publish.sh` apos o `latest` no npm |
-| GitHub Releases | github.com/zihin-ai/zihin-mcp/releases | Publicado, desatualizado | "Latest" = v1.4.0; a tag `v2.2.2` existe sem Release | `gh release create` manual por tag |
+| GitHub Releases | github.com/zihin-ai/zihin-mcp/releases | Confirmado | v2.2.2 (Latest) | `gh release create` manual por tag |
 | Marketplace proprio do Claude Code | `zihin-ai/zihin-mcp` -> `zihin@zihin` | Confirmado | 2.2.2 | Merge no `main` com `version` do `plugin.json` incrementada |
-| Diretorio da Anthropic | claude.ai/directory | Nao verificado (exige login no portal) | — | Portal: o diretorio acompanha a branch e revalida cada commit |
+| Diretorio da Anthropic | claude.ai/directory | Preparado (bloqueios do validador resolvidos; reenvio pelo portal pendente) | — | Portal: o diretorio acompanha a branch e revalida cada commit |
 | Smithery | smithery.ai/servers/zihin/mcp | Publicado, desatualizado | 96 tools, inclui as 9 de conexao removidas | Painel do Smithery (novo scan + edicao da descricao) |
 | Glama | glama.ai/mcp/servers/zihin-ai/zihin-mcp | Publicado, desatualizado | README de 31/08 e 96 tools | Painel do Glama (sync do repo + Deploy + Make Release) |
 | GitHub MCP Registry | github.com/mcp | Ausente | — | Curadoria do GitHub; nao e espelho do registry oficial |
 | Galeria MCP do VS Code | busca `@mcp` no painel Extensions | Ausente (por inferencia) | — | Depende do catalogo do GitHub |
 | cursor.directory | cursor.directory/plugins | Nao verificado (site respondeu 429) | — | Reenvio manual em cursor.directory/plugins/new |
-| Extensao Gemini CLI | github.com/zihin-ai/gemini-cli-zihin | Publicado, desatualizado | v0.1.0, cita 96 tools | Release do GitHub no repo da extensao |
+| Extensao Gemini CLI | github.com/zihin-ai/gemini-cli-zihin | Publicado (instalacao nao testada: sem Gemini CLI na maquina) | v0.1.1 | Release do GitHub no repo da extensao |
 | Galeria de extensoes Gemini | geminicli.com/extensions | Ausente | — | Crawler diario de repos com o topic `gemini-cli-extension` |
 | Docker MCP Catalog | hub.docker.com/mcp | Preparado | — | PR em docker/mcp-registry |
 | Docker Hub / GHCR (imagem propria) | — | Ausente | — | Nao ha publicacao de imagem no CI |
-| Documentacao publica | docs.zihin.ai/integrations/mcp-server | Publicado, desatualizado | 96 tools, documenta conexoes | PR em zihin-ai/zihin-docs + `vercel --prod` manual |
+| Documentacao publica | docs.zihin.ai/integrations/mcp-server | Publicado, desatualizado (correcao mergeada, deploy pendente) | 96 tools, documenta conexoes | PR em zihin-ai/zihin-docs + `vercel --prod` manual |
 
 ## Evidencia e pendencia por canal
 
@@ -71,10 +71,9 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
 
 ### GitHub Releases
 
-- **Evidencia**: `gh release list` mostra so a v1.4.0 como Latest. As tags v2.0.1, v2.1.0, v2.2.0 e
-  v2.2.2 nao tem Release.
-- **Pendencia**: criar a Release 2.2.2 a partir da tag existente (`d04aab2`), com as notas do
-  CHANGELOG e as instrucoes de atualizacao. E uma publicacao: precisa de aprovacao.
+- **Evidencia**: Release `v2.2.2` criada em 04/10/2026 a partir da tag existente (`d04aab2`) e
+  marcada como Latest, com as notas do CHANGELOG e as instrucoes de atualizacao.
+- **Pendencia**: nenhuma para a 2.2.2. As tags v2.0.1, v2.1.0 e v2.2.0 seguem sem Release.
 
 ### Marketplace proprio do Claude Code
 
@@ -87,7 +86,8 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
   instalou precisa rodar `claude plugin update zihin@zihin` e reiniciar o Claude Code. Se a
   `version` do `plugin.json` nao mudar, o comando responde "already at the latest version" e o
   usuario fica com a copia antiga.
-- **Pendencia**: divulgar o comando de atualizacao (docs publicas e notas da Release).
+- **Pendencia**: nenhuma. O comando de atualizacao esta nas notas da Release 2.2.2 e na pagina
+  do MCP Server das docs publicas.
 
 ### Diretorio da Anthropic
 
@@ -99,34 +99,50 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
   de parceria com a Anthropic. O PR #21 falava em "submissao ao `claude-plugins-official`", o que
   nao corresponde ao processo vigente.
 
-- **Evidencia**: o PR #21 so preparou o plugin. Nao ha registro de submissao no repo.
-  `claude plugin list` na maquina do mantenedor mostra `zihin` como "Synced from claude.ai"
-  (fonte GitHub `zihin-ai/zihin-mcp`), o que indica que o plugin foi adicionado a uma conta, nao
-  que esteja listado no diretorio.
-- **O que o validador do portal bloqueia hoje** (checklist de pre-submissao da Anthropic):
+- **Evidencia**: houve uma submissao anterior pelo portal, informada pelo mantenedor; o repo nao
+  guarda registro dela nem do resultado. `claude plugin list` na maquina do mantenedor mostra
+  `zihin` como "Synced from claude.ai" (fonte GitHub `zihin-ai/zihin-mcp`).
+- **Situacao frente ao validador do portal** (checklist de pre-submissao da Anthropic), depois do
+  PR #32:
 
-  | Regra | Situacao do `plugin/` | Resultado |
+  | Regra | Situacao do `plugin/` | Resultado esperado |
   |---|---|---|
-  | README de pelo menos 40 palavras na pasta do plugin | Nao havia `plugin/README.md` | Bloqueia |
-  | Pacote de launcher com versao exata (`npx pacote@1.2.3`) | `plugin/.mcp.json` usa `npx -y @zihin/mcp-server` sem versao | Bloqueia |
-  | Credencial pedida via `userConfig` com `sensitive: true`, nao lida do ambiente | `.mcp.json` le `${ZIHIN_API_KEY}` do ambiente do usuario | Retido para revisor |
-  | Pacote de registry, mesmo com versao exata | `npx` de pacote npm | Retido para revisor (sempre) |
-  | `license` no `plugin.json` ou `LICENSE` na pasta | `license: MIT` presente | Ok |
+  | README de pelo menos 40 palavras na pasta do plugin | `plugin/README.md` | Ok |
+  | Pacote de launcher com versao exata | `npx -y @zihin/mcp-server@X.Y.Z` em `plugin/.mcp.json` | Ok |
+  | `license` no `plugin.json` ou `LICENSE` na pasta | `license: MIT` | Ok |
   | `description`, `author`, `version` | Presentes | Ok |
+  | Pacote de registry, mesmo com versao exata | `npx` de pacote npm | Retido para revisor (sempre) |
+  | Credencial pedida via `userConfig`, nao lida do ambiente | `.mcp.json` le `${ZIHIN_API_KEY}` do ambiente | Retido para revisor |
 
-- **Decisoes em aberto antes de submeter** (mudam o comportamento do plugin, entao entram numa
-  release com bump de versao, nao num ajuste solto):
-  1. Fixar a versao do proxy no `plugin/.mcp.json`. Consequencia: o plugin deixa de pegar o
-     `latest` do npm sozinho; cada release precisa atualizar o pin junto com o `plugin.json`
-     (e o `scripts/registry-publish.sh` deve passar a conferir essa coerencia).
-  2. Trocar `${ZIHIN_API_KEY}` do ambiente por `userConfig`. Consequencia: quem ja usa o plugin
-     com a variavel exportada passa a ser perguntado pela key.
-  3. Submeter tambem o endpoint remoto `https://llm.zihin.ai/mcp` como **MCP connector**. A
-     Anthropic recomenda as duas submissoes para quem opera o proprio server remoto; os requisitos
-     de autenticacao do connector precisam ser conferidos no checklist proprio antes.
-- **Se houve submissao pelo formulario antigo do Console**: ela nao migra sozinha. Abrir
-  platform.claude.com/plugins/submissions; se houver botao Withdraw, retirar e reenviar pelo
-  portal; se nao houver, escrever para directory@anthropic.com.
+  "Retido para revisor" nao e rejeicao: a versao so vai ao ar depois que uma pessoa da Anthropic
+  a libera.
+- **Custo do pin**: o plugin so recebe proxy novo quando o plugin e atualizado. O pin entra na
+  lista de bumps de toda release; `scripts/registry-publish.sh` e `test/plugin-manifest.test.js`
+  falham se ele ficar para tras.
+- **Decisao em aberto**: trocar `${ZIHIN_API_KEY}` do ambiente por `userConfig` com
+  `sensitive: true`. Tira a retencao por credencial, mas quem ja usa o plugin com a variavel
+  exportada passa a ser perguntado pela key.
+- **Passo a passo do reenvio** (portal claude.ai/directory/manage, conta paga; em Team/Enterprise,
+  um Owner):
+  1. Conferir a submissao anterior em **Submissions**. Se ela existir para o mesmo repositorio e
+     pasta, abrir essa submissao em vez de criar outra (so cabe uma por repositorio e pasta) e usar
+     **Check for new commits**; se foi rejeitada, **Resubmit for review** na aba Review. Se a
+     anterior foi feita pelo formulario antigo do Console, retira-la em
+     platform.claude.com/plugins/submissions (ou escrever para directory@anthropic.com se nao
+     houver botao Withdraw).
+  2. Se for submissao nova: **Submit new** -> **Plugin bundle**. Repository `zihin-ai/zihin-mcp`,
+     Plugin path `plugin`, Branch em branco (acompanha o `main`).
+  3. **Validate**. Nenhum achado deve vir como Blocking; os dois "Policy hold" da tabela acima sao
+     esperados.
+  4. Conferir os detalhes da listagem (vem do `plugin.json` e do `plugin/README.md`).
+  5. Data handling: o plugin nao guarda dados; envia as requisicoes MCP e a API Key so para
+     `https://llm.zihin.ai/mcp`, que e o servico declarado.
+  6. Compliance, depois **Submit for review**, mantendo **GitHub push webhook** (exige admin do
+     repo para instalar).
+  7. Quando a versao passar: **Publish** na pagina do plugin.
+- **Segunda submissao recomendada**: o endpoint remoto `https://llm.zihin.ai/mcp` como
+  **MCP connector**. A Anthropic recomenda as duas para quem opera o proprio server remoto. Os
+  requisitos de autenticacao do connector nao foram conferidos nesta rodada.
 
 ### Smithery
 
@@ -184,8 +200,12 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
 - **Como recebe atualizacao**: o CLI compara a tag da ultima release do GitHub. A `version` do
   manifest precisa bater com a tag. O usuario roda `gemini extensions update zihin` e reinicia a
   sessao.
-- **Pendencia**: merge da correcao (zihin-ai/gemini-cli-zihin#2) e publicacao da release v0.1.1.
-  A ausencia na galeria segue sem causa identificada; reconferir alguns dias depois da v0.1.1.
+- **Feito em 04/10/2026**: zihin-ai/gemini-cli-zihin#2 mergeado (README com 88 tools, descricao do
+  manifest sem numero fixo, secao Update) e release `v0.1.1` publicada, com a `version` do manifest
+  igual a tag.
+- **Pendencia**: testar `gemini extensions install` e `gemini extensions update zihin` numa
+  maquina com o Gemini CLI. A ausencia na galeria segue sem causa identificada; reconferir alguns
+  dias depois da v0.1.1.
 
 ### Docker MCP Catalog
 
@@ -200,8 +220,8 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
     `tools.json`. Segredos em `config.secrets` (`name`, `env`, `example`).
   - Licenca MIT ou Apache 2.0 (a nossa e MIT). Todo PR e revisado pela equipe da Docker;
     credenciais de teste sao enviadas por um formulario deles. Disponivel em ate 24h apos o merge.
-- **Decisao em aberto**: qual caminho. Recomendacao: imagem construida pela Docker, que reaproveita
-  o Dockerfile existente e nao cria um pipeline de imagem para manter.
+- **Caminho decidido em 04/10/2026**: imagem construida pela Docker, que reaproveita o Dockerfile
+  existente e nao cria um pipeline de imagem para manter.
 - **Rascunho do `server.yaml`** para esse caminho (gerar o definitivo com `task create` no fork,
   que tambem monta o `tools.json`):
 
@@ -228,14 +248,15 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
         example: zhn_live_xxx
   ```
 
-- **Pendencia**: decidir o caminho, gerar os arquivos no fork, separar uma key de teste para a
-  Docker e abrir o PR. E uma submissao externa: precisa de aprovacao.
+- **Pendencia**: fork de docker/mcp-registry, `task create` (exige o `task` instalado e Docker
+  rodando), key de teste enviada pelo formulario da Docker e abertura do PR.
 
 ### Documentacao publica
 
-- **Evidencia**: docs.zihin.ai/integrations/mcp-server ainda diz 96 tools e documenta as tools de
-  conexao e `db_config`.
-- **Pendencia**: merge de zihin-ai/zihin-docs#26 e deploy manual (`vercel --prod`).
+- **Evidencia**: zihin-ai/zihin-docs#26 mergeado em 04/10/2026 (88 tools, sem banco do tenant nas
+  paginas de produto, HTTP stateless, secao Updating), conferido contra producao com uma key admin.
+  O site no ar ainda mostrava 96 tools na mesma data: o deploy e manual.
+- **Pendencia**: `vercel --prod` no checkout de zihin-docs e conferir a pagina no ar.
 
 ## Como o usuario que ja instalou recebe uma atualizacao
 
@@ -256,7 +277,8 @@ Depois do fluxo de publicacao (npm `next` -> validacao -> `latest` -> tag -> reg
 
 1. `npm view @zihin/mcp-server dist-tags` e `node scripts/registry-verify.mjs ai.zihin/mcp-server X.Y.Z`.
 2. Criar a GitHub Release da tag `vX.Y.Z` com as notas do CHANGELOG.
-3. Plugin Claude: `claude plugin validate --strict ./plugin`; instalar numa config isolada
+3. Plugin Claude: pin de `plugin/.mcp.json` na versao nova (o `npm test` falha se ficar para
+   tras); `claude plugin validate --strict ./plugin`; instalar numa config isolada
    (`CLAUDE_CONFIG_DIR=<pasta temporaria>`) e conferir a versao com `claude plugin list`.
 4. Se a contagem de tools/resources mudou no `server-card.json`: corrigir README, `plugin.json`,
    `marketplace.json`, a extensao Gemini, a descricao no Smithery e as docs publicas.
