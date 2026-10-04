@@ -182,7 +182,7 @@ O pacote atua como um **proxy transparente** entre o cliente MCP local (via stdi
 
 ## Skills — deixe seu IDE especialista no Zihin
 
-O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*` — todo client MCP ja as recebe automaticamente, sem instalar nada.
+O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
 
 Para instalar tambem no formato NATIVO do seu client (ativacao automatica por contexto):
 
@@ -200,7 +200,7 @@ npx @zihin/mcp-server install-skills --client claude --bundled
 
 Opcoes: `--client claude|cursor|windsurf|codex|all` · `--dir <raiz-do-projeto>` · `--global` (so claude, instala em `~/.claude/skills`) · `--bundled` (offline).
 
-As skills sao buscadas do server vivo (sempre atualizadas). No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
+As skills sao buscadas do server vivo (sempre atualizadas). Se a busca falhar (rede, server fora do ar, key recusada) ou voltar vazia, o comando avisa e instala as copias empacotadas no npm — as mesmas do `--bundled`, congeladas na data da release; a saida informa a fonte usada (`fonte: server` ou `fonte: bundled`). Sem `ZIHIN_API_KEY` e sem `--bundled` nao ha fallback: o comando encerra com erro. No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
 
 ### Plugin Claude Code (MCP + skills em um comando)
 
@@ -243,7 +243,7 @@ Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources —
 
 ## Testes
 
-62 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
+75 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills, verificador do registry) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
 
 ```bash
 ZIHIN_API_KEY=zhn_live_xxx npm test
@@ -251,7 +251,7 @@ ZIHIN_API_KEY=zhn_live_xxx npm test
 
 Cobertura: validacao de API Key, tools (incluindo `chat_with_agent` com session tracking, continuidade e o contrato de saida — `execution_id`, `cancelled`, `tools_used`/`tool_calls`), resources, prompts, protocolo MCP (identidade espelhada + instructions), classificacao de erros (formas SDK v1 e v2) e o teto de `tools/call` conferido contra o deadline do server.
 
-> A suite de integracao executa um turno REAL de agente (custo de LLM no tenant). No CI ela roda apenas no gate de publish.
+> A suite de integracao faz DUAS chamadas reais a `chat_with_agent` (abertura da sessao e continuidade) — dois turnos de agente, com custo real de LLM no tenant. No CI ela roda apenas no workflow da tag `v*`.
 
 ## Troubleshooting
 

@@ -3,11 +3,14 @@
  * Sincroniza as skills empacotadas (plugin/skills/) com a fonte única.
  *
  * Fontes (em ordem de preferência):
- *   --from-server  busca do MCP Server vivo (requer ZIHIN_API_KEY) — usa em release
- *   --from-dir <p> copia de um checkout local do zihin-agent-builder
+ *   --from-server  busca do MCP Server vivo (requer ZIHIN_API_KEY); o conteúdo
+ *                  recebido passa pelo parseSkill (não confiável)
+ *   --from-dir <p> cópia direta (sem parseSkill) de um checkout local do zihin-agent-builder
  *                  (default: ../zihin-agent-builder/server-llm/mcp-server/skills)
  *
- * Rodar antes de publicar no npm: npm run sync-skills
+ * Rodar na PREPARAÇÃO da branch de release (npm run sync-skills), conferir o
+ * diff e registrar o commit da fonte. É destrutivo (apaga e recria
+ * plugin/skills/): não repetir depois que a release foi revisada e aprovada.
  */
 
 import { cpSync, rmSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';

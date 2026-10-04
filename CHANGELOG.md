@@ -9,7 +9,7 @@ Release das skills empacotadas e dos metadados, acompanhando a remocao do recurs
 ### Skills empacotadas (ressincronizadas com o server)
 
 - **Sem banco do tenant**: `db_config`, conexoes (`list_connections` e afins) e o trigger `db_event` sairam das skills `tools-de-agente`, `criar-agente` e `triggers-e-canais`. O server recusa `db_config` e nao lista mais as 9 tools de conexao — a skill antiga ensinava um caminho que nao existe mais. Acesso a banco de dados agora e via `api_config` ou um MCP server proprio.
-- **Mapa de categorias**: 88 tools (consumer-ops 5, builder-read 40, builder-write 35).
+- **Mapa de categorias**: 88 tools (consumer 5 + consumer-profile 3 + consumer-ops 5 + builder-read 40 + builder-write 35).
 - **Conteudo novo que estava so no server**: memoria persistente, controle de engajamento e chips de resposta rapida (`quick_replies_enabled`) em `criar-agente`/`governanca-e-operacao`; edicao de schema com `base_version` (recusa com `CONFLICT` se alguem editou antes); `validate_agent_schemas` com `surface.cited_outside`; nome completo `{server}_{tool}` em `must_not_tools`; diagnostico de turno com `TIMEOUT` (`timeout_clock`) e de churn de superficie (`diagnostico`); timeout por tool (`timeout_ms` / `call_timeout_ms`); envio unico da mensagem manual e identidade em `chat_with_agent`.
 
 - **Correcao pontual na copia empacotada de `criar-agente`**: sessao sem identidade pode ser adotada pela primeira declaracao de `consumer_key`; conflito ocorre se a sessao ja pertence a outra pessoa. O campo e necessario para memoria sob admin/owner, nao para conversar. Alinhado ao runtime em producao (`ee83ebb1`) e a skill de governanca; a fonte de `criar-agente` e a descricao do server card ainda precisam dessa correcao antes do proximo sync.
@@ -18,7 +18,9 @@ Release das skills empacotadas e dos metadados, acompanhando a remocao do recurs
 
 - Desde a 2.2.1 (sem release propria): instalacao em 1 clique no README (Cursor, VS Code, Gemini CLI) e badges, `mcp.json` na raiz (padrao Open Plugins), `Dockerfile` do proxy e `glama.json` (#20–#25).
 
-- Versao raiz do `package-lock.json` alinhada a 2.2.2, sem alterar dependencias.
+- Versao raiz do `package-lock.json` alinhada a 2.2.2 e `engines.node` alinhado ao `package.json` (`>=20`; o lockfile ainda dizia `>=18`), sem alterar dependencias.
+- **`scripts/registry-publish.sh`**: cria o diretorio da chave quando falta (clone novo ou worktree falhavam na escrita) e a verificacao final passou a exigir nome e versao exatos com `isLatest=true`, via `scripts/registry-verify.mjs` (tentativas limitadas; diferencia servidor ausente, versao anterior, versao nao `latest`, JSON invalido e falha de rede). Antes, qualquer resultado nao vazio da busca passava — inclusive so a versao anterior ou outro servidor.
+- **Documentacao fiel ao codigo**: a integracao faz duas chamadas reais a `chat_with_agent` (nao um turno); skills sao resources que o client precisa consultar (nao chegam sozinhas); fallback do `install-skills` para o bundle documentado; `parseSkill` so no sync `--from-server`; sync de skills na preparacao da branch, sem repetir apos a aprovacao; o `publish.yml` nao e barreira antes do publish no fluxo canary.
 - `npm test` passa a rodar no Node 22+ (`node --test test/` era lido como arquivo e falhava sem rodar nada; o glob agora e expandido pelo shell e vale no Node 20 tambem).
 - Contagens no README, no `plugin.json` e no `marketplace.json`: 88 tools / 19 resources (10 contratos formais) / 3 prompts; editor ve 48.
 
