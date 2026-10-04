@@ -5,9 +5,17 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# ZIHIN_REGISTRY_KEY relativo vale a partir de onde o script foi chamado, nao
+# da raiz do repo — senao o caminho erra em silencio e uma chave nova e gerada.
+CALLER_PWD="$PWD"
 cd "$ROOT"
 KEY="${ZIHIN_REGISTRY_KEY:-$ROOT/.secrets/registry-mcp-key.pem}"
+case "$KEY" in /*) ;; *) KEY="$CALLER_PWD/$KEY" ;; esac
 DOMAIN="zihin.ai"
+# O diretorio da chave (.secrets/ fica fora do git) pode nao existir num clone
+# novo ou numa worktree: sem ele, gerar ou restaurar a chave falha na escrita.
+KEY_DIR="$(dirname "$KEY")"
+[ -d "$KEY_DIR" ] || (umask 077; mkdir -p "$KEY_DIR")
 
 fail() { echo "ERRO: $*" >&2; exit 1; }
 
@@ -40,12 +48,12 @@ TXT="$(dig TXT "$DOMAIN" +short 2>/dev/null | tr -d '"' | grep '^v=MCPv1' || tru
 echo "$TXT" | grep -qF "p=${PUB}" || fail "TXT no DNS nao bate com a chave local ${KEY}: DNS tem '${TXT}'"
 
 # 4. versoes coerentes: server.json (topo e packages[0]) == package.json == npm publicado
-read -r V_PKG V_SRV V_SRV_PKG MCP_NAME <<<"$(node -e '
-  const p = require("./package.json"), s = require("./server.json");
-  console.log(p.version, s.version, s.packages[0].version, p.mcpName);
+read -r V_PKG V_SRV V_SRV_PKG MCP_NAME V_PLUGIN <<<"$(node -e '
+  const p = require("./package.json"), s = require("./server.json"), g = require("./plugin/.claude-plugin/plugin.json");
+  console.log(p.version, s.version, s.packages[0].version, p.mcpName, g.version);
 ')"
-[ "$V_PKG" = "$V_SRV" ] && [ "$V_PKG" = "$V_SRV_PKG" ] \
-  || fail "versoes divergem: package.json=$V_PKG server.json=$V_SRV packages[0]=$V_SRV_PKG"
+[ "$V_PKG" = "$V_SRV" ] && [ "$V_PKG" = "$V_SRV_PKG" ] && [ "$V_PKG" = "$V_PLUGIN" ] \
+  || fail "versoes divergem: package.json=$V_PKG server.json=$V_SRV packages[0]=$V_SRV_PKG plugin.json=$V_PLUGIN"
 V_NPM="$(npm view @zihin/mcp-server version 2>/dev/null || true)"
 [ "$V_NPM" = "$V_PKG" ] || fail "npm tem $V_NPM, esperado $V_PKG — rode npm publish antes"
 NPM_MCPNAME="$(npm view @zihin/mcp-server mcpName 2>/dev/null || true)"
@@ -58,12 +66,8 @@ mcp-publisher login dns --domain "$DOMAIN" --private-key "$PRIV"
 echo "Publicando ${MCP_NAME}@${V_PKG}..."
 mcp-publisher publish
 
-# 6. verificacao
+# 6. verificacao — nome e versao EXATOS e isLatest=true, com tentativas
+# limitadas (a busca por substring aceitava versao anterior ou outro servidor)
 echo
 echo "Verificando no registry..."
-curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers?search=${MCP_NAME}" \
-  | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
-      const s=(JSON.parse(d).servers||[]);
-      if(!s.length){console.error("nao encontrado no registry ainda");process.exit(1)}
-      for(const x of s){const y=x.server||x;console.log("OK:", y.name, y.version||"")}
-    })'
+node "$ROOT/scripts/registry-verify.mjs" "$MCP_NAME" "$V_PKG"

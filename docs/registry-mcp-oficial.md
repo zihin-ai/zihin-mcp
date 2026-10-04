@@ -20,10 +20,19 @@ O registry valida que o pacote npm referencia o nome MCP — por isso o `package
 
 ## Atalho: o script
 
-`scripts/registry-publish.sh` faz o fluxo inteiro com as checagens de pre-requisito: gera a chave
-e imprime o TXT se a chave (`.secrets/registry-mcp-key.pem`) nao existir; senao valida TXT no ar (e batendo com a chave local),
-versoes coerentes (package.json == server.json == npm) e `mcpName` publicado, e so entao roda
-`mcp-publisher login dns` + `publish` + verificacao. Os passos manuais equivalentes:
+`scripts/registry-publish.sh` faz o fluxo inteiro com as checagens de pre-requisito: cria o diretorio
+da chave se faltar, gera a chave e imprime o TXT se a chave (`.secrets/registry-mcp-key.pem`) nao existir;
+senao valida TXT no ar (e batendo com a chave local), versoes coerentes (package.json == server.json ==
+plugin.json == `latest` do npm) e `mcpName` publicado, e so entao roda `mcp-publisher login dns` +
+`publish` + verificacao (nome e versao exatos com `isLatest=true`).
+
+> **Worktree ou clone novo:** `.secrets/` fica fora do git, entao so existe no checkout onde a chave
+> foi criada. Rodar o script de outro lugar sem a chave faz ele gerar uma chave NOVA — que so serve
+> depois de trocar o TXT no DNS. Para reusar a chave existente, aponte `ZIHIN_REGISTRY_KEY` para ela
+> (ex.: `ZIHIN_REGISTRY_KEY=../zihin-mcp/.secrets/registry-mcp-key.pem scripts/registry-publish.sh`;
+> caminho relativo vale a partir do diretorio de onde o script e chamado).
+
+Os passos manuais equivalentes:
 
 ## Passo a passo (primeira publicacao)
 
@@ -47,6 +56,7 @@ brew install mcp-publisher
 O namespace `ai.zihin` e provado por posse do dominio `zihin.ai` via DNS:
 
 ```bash
+(umask 077; mkdir -p .secrets)   # .secrets/ fica fora do git — nao existe num clone novo
 openssl genpkey -algorithm Ed25519 -out .secrets/registry-mcp-key.pem
 PUBLIC_KEY="$(openssl pkey -in .secrets/registry-mcp-key.pem -pubout -outform DER | tail -c 32 | base64)"
 echo "zihin.ai. IN TXT \"v=MCPv1; k=ed25519; p=${PUBLIC_KEY}\""
@@ -70,8 +80,17 @@ mcp-publisher publish
 ### 5. Verificar
 
 ```bash
-curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=ai.zihin/mcp-server"
+node scripts/registry-verify.mjs ai.zihin/mcp-server X.Y.Z
 ```
+
+O verificador consulta a versao exata (`GET /v0.1/servers/ai.zihin%2Fmcp-server/versions/X.Y.Z`) e so
+sai com 0 se o registry devolver esse nome, essa versao, `status: "active"` e `isLatest: true` — os dois
+ultimos ficam em `_meta["io.modelcontextprotocol.registry/official"]`, irmao de `server`. A propagacao pode levar alguns
+segundos: ele repete ate 6 vezes com 5s de intervalo (`REGISTRY_VERIFY_ATTEMPTS` /
+`REGISTRY_VERIFY_INTERVAL_MS`) enquanto o caso for transitorio (servidor ausente, registry ainda na
+versao anterior, versao publicada mas nao `latest`, HTTP 404/408/429, 5xx ou falha de rede; cada request tem teto de 15s) e,
+ao esgotar, diz qual foi. Resposta divergente, status inativo, JSON invalido e os demais 4xx falham na hora.
+A busca `?search=` nao serve de verificacao: e por substring e devolve outras versoes e outros nomes.
 
 Depois (dias, nao horas): conferir a vitrine do GitHub (github.com/mcp) e a galeria do VS Code
 (painel Extensions, busca `@mcp`). A vitrine curada do GitHub e editorial — se nao aparecer,
@@ -80,7 +99,9 @@ da para nomear o server a partnerships@github.com.
 ## Manutencao por release
 
 A cada release do pacote: atualizar a versao no `server.json` (campo `version` do topo E de
-`packages[0]`), publicar no npm primeiro, e rodar `mcp-publisher login dns` + `publish` de novo.
+`packages[0]`) e no `plugin/.claude-plugin/plugin.json`, publicar no npm e PROMOVER a `latest`
+(`npm dist-tag add ...@X.Y.Z latest`) primeiro — o script compara com o `latest` —, e so entao rodar
+`scripts/registry-publish.sh` (`mcp-publisher login dns` + `publish` + verificacao).
 Candidato a automacao no `publish.yml` via GitHub Actions (ha guia oficial:
 modelcontextprotocol.io/registry/github-actions) — exige a chave privada como secret do repo.
 

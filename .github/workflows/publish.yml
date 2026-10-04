@@ -21,9 +21,12 @@ jobs:
 
       - run: npm ci
 
-      # Única barreira com key real antes do npm publish (raro, 1 turno de
-      # agente por release). REQUIRE_INTEGRATION=1 garante que secret ausente
-      # falha em vez de pular silenciosamente.
+      # NÃO é a barreira antes do npm publish: no fluxo canary a publicação é
+      # local e manual, e a tag v* só é empurrada depois — o gate de verdade é
+      # o `REQUIRE_INTEGRATION=1 npm test` LOCAL, antes do publish. Aqui a
+      # suíte roda de novo como registro no marco da release (duas chamadas
+      # reais a chat_with_agent por execução). REQUIRE_INTEGRATION=1 garante
+      # que secret ausente falha em vez de pular silenciosamente.
       - name: Testes de integração
         run: npm test
         env:
@@ -47,7 +50,7 @@ jobs:
       # Fluxo canary (ago/2026): a publicação real é MANUAL
       # (npm publish --tag next com passkey; tokens bypass-2FA não publicam
       # mais desde 28/07/2026). A tag v* é empurrada DEPOIS, como marco +
-      # gate de integração. Se a versão já está no npm, este job vira no-op
+      # reexecução da integração. Se a versão já está no npm, este job vira no-op
       # verde em vez de falhar com "cannot publish over existing version".
       - name: Publicar no npm (skip se versão já publicada)
         run: |

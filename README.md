@@ -170,7 +170,7 @@ Qualquer cliente que suporte o protocolo MCP via stdio pode usar este pacote. O 
 |----------|-------------|-----------|
 | `ZIHIN_API_KEY` | Sim | API Key do tenant (formato `zhn_live_*`, `zhn_test_*` ou `zhn_dev_*`) |
 | `ZIHIN_MCP_URL` | Nao | URL do MCP Server (default: `https://llm.zihin.ai/mcp`) |
-| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (chat 150s, builder 180s, async 240s) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
+| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. As skills do backend 2026.10.5 informam teto operacional de 180s para os canais externos, incluindo `chat_with_agent`; esse valor depende da configuracao do servidor. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
 
 ## Como funciona
 
@@ -182,7 +182,7 @@ O pacote atua como um **proxy transparente** entre o cliente MCP local (via stdi
 
 ## Skills — deixe seu IDE especialista no Zihin
 
-O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*` — todo client MCP ja as recebe automaticamente, sem instalar nada.
+O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
 
 Para instalar tambem no formato NATIVO do seu client (ativacao automatica por contexto):
 
@@ -200,7 +200,7 @@ npx @zihin/mcp-server install-skills --client claude --bundled
 
 Opcoes: `--client claude|cursor|windsurf|codex|all` · `--dir <raiz-do-projeto>` · `--global` (so claude, instala em `~/.claude/skills`) · `--bundled` (offline).
 
-As skills sao buscadas do server vivo (sempre atualizadas). No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
+As skills sao buscadas do server vivo (sempre atualizadas). Se a busca falhar (rede, server fora do ar, key recusada) ou voltar vazia, o comando instala as copias empacotadas no npm — as mesmas do `--bundled`, congeladas na data da release. Na falha ele imprime um aviso; nos dois casos a saida informa a fonte usada (`fonte: server` ou `fonte: bundled`). Sem `ZIHIN_API_KEY` e sem `--bundled` nao ha fallback: o comando encerra com erro. No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
 
 ### Plugin Claude Code (MCP + skills em um comando)
 
@@ -217,11 +217,11 @@ As capabilities disponiveis dependem do role da API Key, controlado server-side:
 
 | Role | Tools | Resources | Prompts |
 |------|-------|-----------|---------|
-| `admin` | Todas (96) | 20 | 3 |
-| `editor` | Leitura (52 — writes nao sao listadas) | 20 | 3 |
+| `admin` | Todas (88) | 19 | 3 |
+| `editor` | Leitura (48 — writes nao sao listadas) | 19 | 3 |
 | `member` | Subset consumer (5) | - | - |
 
-Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources — 3 catalogos + 11 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
+Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources — 3 catalogos + 10 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
 
 ### Resources disponiveis
 
@@ -230,7 +230,7 @@ Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources —
 | `zihin://agents` | Lista de agentes do tenant |
 | `zihin://models` | Catalogo de modelos LLM disponiveis |
 | `zihin://schema-templates` | Templates de schema para configuracao |
-| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (11 tipos) |
+| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
 | `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
 
 ### Prompts disponiveis
@@ -243,7 +243,7 @@ Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources —
 
 ## Testes
 
-62 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
+84 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills, verificador do registry) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
 
 ```bash
 ZIHIN_API_KEY=zhn_live_xxx npm test
@@ -251,7 +251,7 @@ ZIHIN_API_KEY=zhn_live_xxx npm test
 
 Cobertura: validacao de API Key, tools (incluindo `chat_with_agent` com session tracking, continuidade e o contrato de saida — `execution_id`, `cancelled`, `tools_used`/`tool_calls`), resources, prompts, protocolo MCP (identidade espelhada + instructions), classificacao de erros (formas SDK v1 e v2) e o teto de `tools/call` conferido contra o deadline do server.
 
-> A suite de integracao executa um turno REAL de agente (custo de LLM no tenant). No CI ela roda apenas no gate de publish.
+> A suite de integracao faz DUAS chamadas reais a `chat_with_agent` (abertura da sessao e continuidade) — dois turnos de agente, com custo real de LLM no tenant. No CI ela roda apenas no workflow da tag `v*`.
 
 ## Troubleshooting
 
@@ -282,7 +282,7 @@ A API Key foi revogada ou desativada no painel Zihin. Gere uma nova key e atuali
 O proxy espera ate 5 minutos por um `tools/call`. Quando essa mensagem aparece, o limite atingido foi o **do proxy**, nao o do server — o trabalho foi cancelado no servidor (no dialeto 2026-07-28 o abort do request e o sinal de cancelamento), entao nao ha execucao orfa queimando token.
 
 - Turno de agente legitimamente longo: suba o teto com `ZIHIN_MCP_CALL_TIMEOUT_MS` (em milissegundos, faixa `1000`–`1800000`). Acima de ~300s o proprio `fetch` do Node pode cortar antes.
-- Quem estourou primeiro foi o **server** (deadline por canal: chat 150s, builder 180s, async 240s): a mensagem que chega e outra, um erro `TURN_TIMEOUT` com `execution_id` e `session_id` — leve esses dois identificadores para o suporte, sao a correlacao com a execucao no servidor.
+- Quem estourou primeiro foi o **server** (deadline por canal: defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor): a mensagem que chega e outra, um erro `TURN_TIMEOUT` com `execution_id` e `session_id` — leve esses dois identificadores para o suporte, sao a correlacao com a execucao no servidor.
 - Cliente MCP tem timeout proprio, independente deste: se o host desistir antes, ele mostra o erro dele.
 
 ### Tools nao aparecem no cliente
@@ -292,7 +292,7 @@ O proxy espera ate 5 minutos por um `tools/call`. Quando essa mensagem aparece, 
 
 ## Limitacoes
 
-- **Turno longo tem teto**: `tools/call` espera no maximo 5 min no proxy (configuravel — ver `ZIHIN_MCP_CALL_TIMEOUT_MS`), e o server tem deadline proprio por canal (chat 150s, builder 180s, async 240s). Turno que passa disso e cancelado, nao enfileirado.
+- **Turno longo tem teto**: `tools/call` espera no maximo 5 min no proxy (configuravel — ver `ZIHIN_MCP_CALL_TIMEOUT_MS`), e o server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor). Turno que passa disso e cancelado, nao enfileirado.
 - **Streaming**: A tool `chat_with_agent` retorna a resposta completa de uma vez (sincrono). O protocolo MCP define que tools retornam um `CallToolResult` completo — nao ha suporte a streaming progressivo. Para feedback em tempo real durante execucao do agente, use o endpoint REST SSE (`POST /api/v2/agents/:agent_id/stream`).
 
 ## Requisitos
