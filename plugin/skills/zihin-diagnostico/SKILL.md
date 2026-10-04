@@ -22,11 +22,16 @@ Interpretação rápida:
 
 **Assinatura clássica**: usuário final recebe "Tool not found", mas a telemetria mostra a execução como sucesso → o MCP server externo está inativo/erro e as tools sumiram do runtime. Correção: `test_mcp_server` (ping + auth) → corrigir endpoint/credencial se preciso → `invalidate_mcp_cache` (cache tem TTL 5 min; invalidar força reload).
 
-Para api_config/db_config com erro: `validate_agent_schemas` aponta o schema quebrado; lembre da regra `endpoint.name == tool_definition.name`.
+Confirme a hipótese com `get_execution_diagnostics`: compare `tools_loaded` (contagem) e `tools_loaded_names` do turno bom com os do turno ruim. Contagem oscilando entre turnos = churn de superfície (MCP externo em flap), não bug do agente. Agente em modo serve de superfície (snapshot A4) mostra em `tools_loaded_names` exatamente o que o modelo viu — uma tool nova que não aparece ali está fora do snapshot ativo (para incluí-la, invalide a superfície — `invalidate_mcp_cache` ou a mudança de schema/CSP já fazem isso).
+
+Para api_config com erro: `validate_agent_schemas` aponta o schema quebrado; lembre da regra `endpoint.name == tool_definition.name`. Agente que responde "ferramenta indisponível" com `tool_call_logs` mostrando `not a valid tool`: a mesma tool aponta em `surface.cited_outside` — uma skill/persona ensina uma tool que a CSP bloqueia (`blocked_by_csp`) ou que o servidor não oferece mais (`not_in_surface`).
 
 ## 3. Execução específica
 
 `get_execution_diagnostics` — trace da execução: modelo usado, iterações, tool calls com input/output, erros por passo.
+
+### Turno terminou em TIMEOUT
+O desfecho diz qual relógio disparou (`timeout_clock`): `turn` = prazo do turno, que depende do canal (chat 150s; Builder 180s; webhook, schedule, e-mail e `chat_with_agent` 180s hoje — o teto da plataforma; o cliente pode só encurtar via `options.timeout_ms` ou `execution.timeout_ms` da trigger); `first_signal` = o provedor não começou a responder; `idle` = o stream parou no meio; `call` = chamada sem stream passou de 45s. Timeout NÃO troca de modelo. Tool lenta não encerra o turno: o modelo recebe o aviso e segue — o conserto é o `timeout_ms`/`call_timeout_ms` da tool (`zihin://skills/tools-de-agente`).
 
 ## 4. Multi-agente (orchestrator)
 

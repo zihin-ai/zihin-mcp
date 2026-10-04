@@ -22,9 +22,10 @@ jobs:
 
       - run: npm ci
 
-      # Sem ZIHIN_API_KEY de propósito: a suíte de integração executa um
-      # turno real de chat_with_agent (custo de LLM no tenant) — rodar isso a
+      # Sem ZIHIN_API_KEY de propósito: a suíte de integração faz duas
+      # chamadas reais a chat_with_agent (custo de LLM no tenant) — rodar isso a
       # cada push/PR queima token sem necessidade. Os testes de integração
-      # rodam apenas no gate de publish (publish.yml, REQUIRE_INTEGRATION=1).
+      # rodam no gate LOCAL antes do npm publish e no workflow da tag
+      # (publish.yml, REQUIRE_INTEGRATION=1).
       - name: Testes (offline)
         run: npm test

@@ -25,11 +25,11 @@ const API_KEY = process.env.ZIHIN_API_KEY;
 const STDIO_PROTOCOL_VERSION = '2025-03-26';
 
 if (!API_KEY) {
-  // A suíte executa um turno REAL de chat_with_agent (custo de LLM no
-  // tenant), então o CI de push/PR roda sem key — só os testes offline.
-  // REQUIRE_INTEGRATION=1 (gate de publish) transforma key ausente em
-  // falha: secret removido/renomeado não pode virar verde falso na única
-  // barreira antes do npm publish.
+  // A suíte faz DUAS chamadas reais a chat_with_agent — abertura da sessão
+  // e continuidade (custo de LLM no tenant) —, então o CI de push/PR roda
+  // sem key — só os testes offline. REQUIRE_INTEGRATION=1 (gate local antes
+  // do npm publish e workflow da tag) transforma key ausente em falha:
+  // key/secret ausente não pode virar verde falso no gate.
   if (process.env.REQUIRE_INTEGRATION) {
     console.error('ZIHIN_API_KEY ausente com REQUIRE_INTEGRATION=1 — os testes de integração são obrigatórios aqui.');
     process.exit(1);
@@ -588,7 +588,7 @@ describe('proxy stdio ↔ HTTP', () => {
     });
 
     it('instructions do server chegam ao host local (ponteiro para as skills)', async () => {
-      // O instructions ensina o modelo a operar as 96 tools e aponta para as
+      // O instructions ensina o modelo a operar as tools e aponta para as
       // skills zihin://skills/*. Sem repassá-lo, o pacote opera às cegas —
       // o usuário não vê erro, só "o agente erra mais".
       const res = await request('initialize', {

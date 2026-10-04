@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.2.2 (2026-10-04)
+
+Release das skills empacotadas e dos metadados, acompanhando a remocao do recurso "banco de dados do tenant" no server (zihin-agent-builder, doc `loop-review/59`). Sem breaking change.
+
+**Uma mudanca de runtime**: o proxy passa a informar a versao real (lida do `package.json`) no handshake (`serverInfo`/`clientInfo`) e no banner — a 2.2.1 se apresentava como 2.2.0 (#24).
+
+### Skills empacotadas (ressincronizadas com o server)
+
+- **Sem banco do tenant**: `db_config`, conexoes (`list_connections` e afins) e o trigger `db_event` sairam das skills `tools-de-agente`, `criar-agente` e `triggers-e-canais`. O server recusa `db_config` e nao lista mais as 9 tools de conexao — a skill antiga ensinava um caminho que nao existe mais. Acesso a banco de dados agora e via `api_config` ou um MCP server proprio.
+- **Mapa de categorias**: 88 tools (consumer 5 + consumer-profile 3 + consumer-ops 5 + builder-read 40 + builder-write 35).
+- **Conteudo novo que estava so no server**: memoria persistente, controle de engajamento e chips de resposta rapida (`quick_replies_enabled`) em `criar-agente`/`governanca-e-operacao`; edicao de schema com `base_version` (recusa com `CONFLICT` se alguem editou antes); `validate_agent_schemas` com `surface.cited_outside`; nome completo `{server}_{tool}` em `must_not_tools`; diagnostico de turno com `TIMEOUT` (`timeout_clock`) e de churn de superficie (`diagnostico`); timeout por tool (`timeout_ms` / `call_timeout_ms`); envio unico da mensagem manual e identidade em `chat_with_agent`.
+
+- **Skills fieis ao codigo** (fonte corrigida no server, zihin-agent-builder#691, commit `3eee58cb`): prazo do turno por canal no `diagnostico` (chat 150s; Builder 180s; webhook, schedule, e-mail e `chat_with_agent` 180s segundo as skills da fonte, pelo teto da plataforma — o cliente so encurta); `session_strategy` do schedule como objeto `{ "mode": "new" }`, sem modo persistente (cada execucao abre sessao nova); `surface.cited_outside` descrito como heuristica, com os limites do que detecta e o aviso de que `surface.error` significa checagem nao executada; identidade em `chat_with_agent` — sessao sem identidade e adotada pela primeira declaracao de `consumer_key`, `CONFLICT` so ao reusar a sessao de OUTRA pessoa, e o campo e necessario para memoria sob admin/owner, nao para conversar; pausa temporaria com `expires_at` em `set_session_control`.
+- **Origem das copias**: `plugin/skills/` e identico a `server-llm/mcp-server/skills/` no commit `1ec9d4e9` (branch `server-llm`, versao 2026.10.5 em producao), sem excecao local.
+
+### Metadados e repositorio
+
+- Desde a 2.2.1 (sem release propria): instalacao em 1 clique no README (Cursor, VS Code, Gemini CLI) e badges, `mcp.json` na raiz (padrao Open Plugins), `Dockerfile` do proxy e `glama.json` (#20–#25).
+
+- Versao raiz do `package-lock.json` alinhada a 2.2.2 e `engines.node` alinhado ao `package.json` (`>=20`; o lockfile ainda dizia `>=18`), sem alterar dependencias.
+- **`scripts/registry-publish.sh`**: cria o diretorio da chave quando falta (clone novo ou worktree falhavam na escrita) e a verificacao final passou a exigir nome e versao exatos com `isLatest=true`, via `scripts/registry-verify.mjs` (tentativas limitadas e teto de 15s por request; diferencia servidor ausente, versao anterior, versao nao `latest`, status inativo, JSON invalido e falha de rede). `ZIHIN_REGISTRY_KEY` relativo passa a valer a partir do diretorio de quem chama. Antes, qualquer resultado nao vazio da busca passava — inclusive so a versao anterior ou outro servidor.
+- **Prazos no README**: distingue o default de 240s dos canais assincronos do teto operacional configuravel. Os 180s sao informados pelas skills do backend 2026.10.5, sem medicao do ambiente nesta revisao.
+- **Documentacao fiel ao codigo**: a integracao faz duas chamadas reais a `chat_with_agent` (nao um turno); skills sao resources que o client precisa consultar (nao chegam sozinhas); fallback do `install-skills` para o bundle documentado; `parseSkill` so no sync `--from-server`; sync de skills na preparacao da branch, sem repetir apos a aprovacao; o `publish.yml` nao e barreira antes do publish no fluxo canary.
+- `npm test` usa `node --test`, com descoberta nativa dos arquivos de teste no Node 20+. Corrige a execucao no Node 22+ (`node --test test/` falhava) e dispensa expansao de glob pelo shell, inclusive no Windows.
+- Contagens no README, no `plugin.json` e no `marketplace.json`: 88 tools / 19 resources (10 contratos formais) / 3 prompts; editor ve 48.
+
 ## 2.2.1 (2026-09-01)
 
 Sem mudanca de runtime — release de metadados para entrar no MCP Registry oficial (que alimenta o GitHub MCP Registry e a galeria MCP do VS Code).

@@ -7,15 +7,15 @@ description: Skill roteadora do MCP Zihin. Use ao iniciar qualquer trabalho com 
 
 O MCP Server da Zihin gerencia **agentes de IA multi-tenant**: o tenant vem da API Key (confirme com `whoami` — retorna tenant, role e plano). Toda operação é automaticamente escopada ao tenant da key.
 
-## Mapa de categorias (96 tools)
+## Mapa de categorias (88 tools)
 
 | Categoria | O que faz | Roles |
 |---|---|---|
 | consumer (5) | `whoami`, descobrir agentes publicados, conversar (`chat_with_agent`), histórico de sessões | todos |
 | consumer-profile (3) | leitura agregada de consumidores finais e suas sessões | owner/admin/editor |
-| consumer-ops (4) | denylist, suspender sessão, mensagem manual, cancelar turno | owner/admin |
-| builder-read (44) | `list_*`/`get_*`/`validate_*`/`compare_*` + budget/approvals reads + observabilidade | owner/admin/editor |
-| builder-write (40) | `create_*`/`update_*`/`delete_*`/`toggle_*`/`publish_*`/`rollback_*`/`test_*` + `set_agent_budget` | owner/admin |
+| consumer-ops (5) | denylist do tenant, controle de sessão (suspender/handoff), controle de engajamento por consumidor, mensagem manual, cancelar turno | owner/admin |
+| builder-read (40) | `list_*`/`get_*`/`validate_*`/`compare_*` + budget/approvals reads + observabilidade | owner/admin/editor |
+| builder-write (35) | `create_*`/`update_*`/`delete_*`/`toggle_*`/`publish_*`/`rollback_*`/`test_*` + `set_agent_budget` | owner/admin |
 
 A lista de tools que você vê JÁ reflete seu role — se uma tool de escrita não aparece, sua key é editor/member.
 
@@ -31,7 +31,7 @@ Para QUALQUER payload estruturado (`schema_data`, `trigger_config`, `rules` de C
 ## Qual skill ler em seguida
 
 - Criar/publicar um agente do zero → `zihin://skills/criar-agente`
-- Dar capacidades ao agente (API, SQL, MCP externo) → `zihin://skills/tools-de-agente`
+- Dar capacidades ao agente (API, MCP externo) → `zihin://skills/tools-de-agente`
 - Conectar canais/automação (webhook, cron, e-mail) → `zihin://skills/triggers-e-canais`
 - Investigar agente com problema/custo/latência → `zihin://skills/diagnostico`
 - Teto de gasto, políticas, aprovação HITL, atendimento humano → `zihin://skills/governanca-e-operacao`

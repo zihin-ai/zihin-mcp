@@ -394,7 +394,7 @@ export async function startProxy() {
 
   // Identidade ESPELHADA do upstream (achado da validação de canary 2.0.0):
   // name/title/instructions vêm do server real — o proxy é transparente, e o
-  // instructions é o texto que ensina o modelo a operar as 96 tools (fluxos,
+  // instructions é o texto que ensina o modelo a operar as tools (fluxos,
   // RBAC, ponteiro para as skills zihin://skills/*). Sem repassá-lo, quem
   // instala o pacote opera às cegas e "o agente só erra mais", sem erro
   // visível. A version continua a do PROXY: identifica o hop que responde o
