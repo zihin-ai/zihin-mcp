@@ -43,7 +43,7 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
 | Marketplace proprio do Claude Code | `zihin-ai/zihin-mcp` -> `zihin@zihin` | Confirmado | 2.2.2 | Merge no `main` com `version` do `plugin.json` incrementada |
 | Diretorio da Anthropic | claude.ai/directory | Submetido (v2.2.2 passou no scan e esta retida para revisor) | — | Portal: o diretorio acompanha o `main` e revalida cada commit (checagem a cada ~6h) |
 | Smithery | smithery.ai/servers/zihin/mcp | Publicado, desatualizado | 96 tools, inclui as 9 de conexao removidas; "last deployed 1 month ago" | Painel do Smithery (novo scan + edicao da descricao) |
-| Glama | glama.ai/mcp/servers/zihin-ai/zihin-mcp | Publicado, desatualizado | README de 31/08 e 96 tools | Painel do Glama (sync do repo + Deploy + Make Release) |
+| Glama | glama.ai/mcp/servers/zihin-ai/zihin-mcp | Publicado, parcialmente atualizado | README de 04/10 (88 tools) e release 2.2.2; a lista "Available Tools" ainda mostrava 96 logo apos o release | Sync do repo no painel; Auto-Release constroi a cada GitHub Release |
 | GitHub MCP Registry | github.com/mcp | Ausente | — | Curadoria do GitHub; nao e espelho do registry oficial |
 | Galeria MCP do VS Code | busca `@mcp` no painel Extensions | Ausente (por inferencia) | — | Depende do catalogo do GitHub |
 | cursor.directory | cursor.directory/plugins/zihin | Publicado (instalacao a partir da listagem nao testada) | `npx -y @zihin/mcp-server`, sem versao | A listagem le o `mcp.json` da raiz do repo |
@@ -149,19 +149,33 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
   (`list_connections` etc.), o resource `zihin://schemas/db_config` e a descricao com "96 tools".
 - **Como recebe atualizacao**: o cadastro nao acompanha o npm nem o registry oficial. As tools
   exibidas sao um scan guardado; a descricao e texto editado no painel.
-- **Pendencia** (exige login no Smithery; o navegador usado em 04/10/2026 nao estava logado): disparar novo scan, corrigir a descricao para 88 tools e
-  conferir que as tools de conexao sumiram.
+- **Tentativa em 04/10/2026**: a conta logada (workspace "Personal" do mantenedor) abre as abas
+  de dono (Releases, Settings), mas salvar a descricao devolve "You do not have permission to
+  perform this action". O cadastro `zihin/mcp` pertence a outra conta ou time do Smithery.
+- **Achados no fluxo de Publish**:
+  - A aba Releases diz "No releases yet". O dialogo de publicacao ja vem com
+    `https://llm.zihin.ai/mcp`.
+  - O padrao do dialogo manda a key como **query string** (`?apiKey=`), que o `/mcp` nao le. O
+    correto e parametro `apiKey` em **header**, com "Output as header" = `X-Api-Key`.
+  - O ultimo passo pede uma API key real para o scan; precisa ser colada pelo mantenedor.
+- **Pendencia**: entrar com a conta dona do cadastro, publicar com o header `X-Api-Key`, colar a
+  key no passo de scan e trocar "96 tools" por "88 tools" na descricao (Settings -> General).
 
 ### Glama
 
-- **Evidencia**: a pagina responde e esta reivindicada (`glama.json`, PR #23). Ela exibe o README
-  antigo ("Contagens verificadas contra producao em 31/08/2026 (96 tools / 20 resources)") e
-  "Available Tools: 96".
-- **Como recebe atualizacao**: sync do repositorio no painel, mais Deploy e Make Release com o
-  Dockerfile (PR #24) para os checks de qualidade.
-- **Pendencia** (exige login no Glama com o GitHub do mantenedor; a pagina Admin pedia "Login with
-  GitHub to claim" em 04/10/2026): sincronizar o repo, refazer Deploy e Make Release com a
-  2.2.2 e conferir os checks e a contagem.
+- **Evidencia** (painel Admin, 04/10/2026): "Sync Server" trouxe o commit atual do `main` e a
+  pagina publica passou a exibir o README novo (88 tools / 19 resources). Com o Auto-Release
+  ligado, o Glama construiu e publicou a release **2.2.2** a partir da GitHub Release (teste de
+  build aprovado). Logo depois do release a secao "Available Tools" da pagina publica ainda
+  listava 96 tools, com as de conexao.
+- **Como recebe atualizacao**: Auto-Release a cada GitHub Release; o commit conhecido so avanca
+  com "Sync Server" (ou o link "sync" ao lado de "Current head commit" na aba Dockerfile).
+- **Atencao**: o campo "Placeholder parameters" da aba Dockerfile guarda uma `ZIHIN_API_KEY` com
+  formato de key real (`zhn_live_...`), usada para subir o server nos checks. Ela nao aparece na
+  pagina publica, mas fica armazenada num servico de terceiros: usar uma key dedicada, de menor
+  privilegio, e rotacionar a atual.
+- **Pendencia**: reconferir a contagem de "Available Tools" na pagina publica; trocar a key do
+  painel por uma dedicada.
 
 ### GitHub MCP Registry e galeria do VS Code
 
