@@ -41,17 +41,17 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
 | MCP Registry oficial | `ai.zihin/mcp-server` em registry.modelcontextprotocol.io | Confirmado | 2.2.2, `active`, `isLatest` | `scripts/registry-publish.sh` apos o `latest` no npm |
 | GitHub Releases | github.com/zihin-ai/zihin-mcp/releases | Confirmado | v2.2.2 (Latest) | `gh release create` manual por tag |
 | Marketplace proprio do Claude Code | `zihin-ai/zihin-mcp` -> `zihin@zihin` | Confirmado | 2.2.2 | Merge no `main` com `version` do `plugin.json` incrementada |
-| Diretorio da Anthropic | claude.ai/directory | Preparado (bloqueios do validador resolvidos; reenvio pelo portal pendente) | — | Portal: o diretorio acompanha a branch e revalida cada commit |
-| Smithery | smithery.ai/servers/zihin/mcp | Publicado, desatualizado | 96 tools, inclui as 9 de conexao removidas | Painel do Smithery (novo scan + edicao da descricao) |
+| Diretorio da Anthropic | claude.ai/directory | Submetido (v2.2.2 passou no scan e esta retida para revisor) | — | Portal: o diretorio acompanha o `main` e revalida cada commit (checagem a cada ~6h) |
+| Smithery | smithery.ai/servers/zihin/mcp | Publicado, desatualizado | 96 tools, inclui as 9 de conexao removidas; "last deployed 1 month ago" | Painel do Smithery (novo scan + edicao da descricao) |
 | Glama | glama.ai/mcp/servers/zihin-ai/zihin-mcp | Publicado, desatualizado | README de 31/08 e 96 tools | Painel do Glama (sync do repo + Deploy + Make Release) |
 | GitHub MCP Registry | github.com/mcp | Ausente | — | Curadoria do GitHub; nao e espelho do registry oficial |
 | Galeria MCP do VS Code | busca `@mcp` no painel Extensions | Ausente (por inferencia) | — | Depende do catalogo do GitHub |
-| cursor.directory | cursor.directory/plugins | Nao verificado (site respondeu 429) | — | Reenvio manual em cursor.directory/plugins/new |
+| cursor.directory | cursor.directory/plugins/zihin | Publicado (instalacao a partir da listagem nao testada) | `npx -y @zihin/mcp-server`, sem versao | A listagem le o `mcp.json` da raiz do repo |
 | Extensao Gemini CLI | github.com/zihin-ai/gemini-cli-zihin | Publicado (instalacao nao testada: sem Gemini CLI na maquina) | v0.1.1 | Release do GitHub no repo da extensao |
 | Galeria de extensoes Gemini | geminicli.com/extensions | Ausente | — | Crawler diario de repos com o topic `gemini-cli-extension` |
-| Docker MCP Catalog | hub.docker.com/mcp | Preparado | — | PR em docker/mcp-registry |
+| Docker MCP Catalog | hub.docker.com/mcp | Submetido (docker/mcp-registry#5438, aguardando revisao) | — | PR em docker/mcp-registry; a Docker constroi a imagem a partir do commit fixado |
 | Docker Hub / GHCR (imagem propria) | — | Ausente | — | Nao ha publicacao de imagem no CI |
-| Documentacao publica | docs.zihin.ai/integrations/mcp-server | Publicado, desatualizado (correcao mergeada, deploy pendente) | 96 tools, documenta conexoes | PR em zihin-ai/zihin-docs + `vercel --prod` manual |
+| Documentacao publica | docs.zihin.ai/integrations/mcp-server | Confirmado | 88 tools | PR em zihin-ai/zihin-docs + deploy manual com build local |
 
 ## Evidencia e pendencia por canal
 
@@ -99,9 +99,18 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
   de parceria com a Anthropic. O PR #21 falava em "submissao ao `claude-plugins-official`", o que
   nao corresponde ao processo vigente.
 
-- **Evidencia**: houve uma submissao anterior pelo portal, informada pelo mantenedor; o repo nao
-  guarda registro dela nem do resultado. `claude plugin list` na maquina do mantenedor mostra
-  `zihin` como "Synced from claude.ai" (fonte GitHub `zihin-ai/zihin-mcp`).
+- **Evidencia** (portal conferido em 04/10/2026): existem DUAS submissoes do mesmo repositorio.
+  - **Pasta `plugin`** (a correta, criada em 25/09): a v2.2.1 estava bloqueada por "Unpinned npx
+    launcher". Depois do pin (PR #32), "Check for new commits" trouxe a v2.2.2 (`d9b3ce1`): scan
+    aprovado e versao retida pela politica do diretorio, aguardando revisor da Anthropic. Avisos
+    restantes, nenhum bloqueante: sem `icon` no `plugin.json` e server MCP local (nao roda no
+    claude.ai web). O resumo da submissao continua exibindo o bloqueio da v2.2.1 ate a v2.2.2 ser
+    liberada.
+  - **Raiz do repositorio** (criada em 01/09): o commit `5e54f53` passou e esta "pronto para
+    publicar"; o commit seguinte falhou porque o `mcp.json` da raiz usa `npx` sem versao. A raiz
+    nao e o plugin: e uma duplicata a retirar (Withdraw submission), decisao do mantenedor.
+  - Nada esta publicado no diretorio. Atualizacoes: so checagem agendada (~6h); o webhook de push
+    nao esta configurado.
 - **Situacao frente ao validador do portal** (checklist de pre-submissao da Anthropic), depois do
   PR #32:
 
@@ -122,24 +131,12 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
 - **Decisao em aberto**: trocar `${ZIHIN_API_KEY}` do ambiente por `userConfig` com
   `sensitive: true`. Tira a retencao por credencial, mas quem ja usa o plugin com a variavel
   exportada passa a ser perguntado pela key.
-- **Passo a passo do reenvio** (portal claude.ai/directory/manage, conta paga; em Team/Enterprise,
-  um Owner):
-  1. Conferir a submissao anterior em **Submissions**. Se ela existir para o mesmo repositorio e
-     pasta, abrir essa submissao em vez de criar outra (so cabe uma por repositorio e pasta) e usar
-     **Check for new commits**; se foi rejeitada, **Resubmit for review** na aba Review. Se a
-     anterior foi feita pelo formulario antigo do Console, retira-la em
-     platform.claude.com/plugins/submissions (ou escrever para directory@anthropic.com se nao
-     houver botao Withdraw).
-  2. Se for submissao nova: **Submit new** -> **Plugin bundle**. Repository `zihin-ai/zihin-mcp`,
-     Plugin path `plugin`, Branch em branco (acompanha o `main`).
-  3. **Validate**. Nenhum achado deve vir como Blocking; os dois "Policy hold" da tabela acima sao
-     esperados.
-  4. Conferir os detalhes da listagem (vem do `plugin.json` e do `plugin/README.md`).
-  5. Data handling: o plugin nao guarda dados; envia as requisicoes MCP e a API Key so para
-     `https://llm.zihin.ai/mcp`, que e o servico declarado.
-  6. Compliance, depois **Submit for review**, mantendo **GitHub push webhook** (exige admin do
-     repo para instalar).
-  7. Quando a versao passar: **Publish** na pagina do plugin.
+- **Proximos passos no portal** (claude.ai/directory/manage):
+  1. Acompanhar a submissao da pasta `plugin` ate o revisor liberar a v2.2.2; quando passar,
+     **Publish** na pagina do plugin.
+  2. Retirar a submissao duplicada da raiz do repositorio.
+  3. Opcional: configurar o webhook de push (Configuracoes -> Atualizacoes) e acrescentar `icon`
+     (SVG ou PNG 512x512 dentro de `plugin/`) ao `plugin.json`.
 - **Segunda submissao recomendada**: o endpoint remoto `https://llm.zihin.ai/mcp` como
   **MCP connector**. A Anthropic recomenda as duas para quem opera o proprio server remoto. Os
   requisitos de autenticacao do connector nao foram conferidos nesta rodada.
@@ -152,7 +149,7 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
   (`list_connections` etc.), o resource `zihin://schemas/db_config` e a descricao com "96 tools".
 - **Como recebe atualizacao**: o cadastro nao acompanha o npm nem o registry oficial. As tools
   exibidas sao um scan guardado; a descricao e texto editado no painel.
-- **Pendencia** (exige login no Smithery): disparar novo scan, corrigir a descricao para 88 tools e
+- **Pendencia** (exige login no Smithery; o navegador usado em 04/10/2026 nao estava logado): disparar novo scan, corrigir a descricao para 88 tools e
   conferir que as tools de conexao sumiram.
 
 ### Glama
@@ -162,7 +159,8 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
   "Available Tools: 96".
 - **Como recebe atualizacao**: sync do repositorio no painel, mais Deploy e Make Release com o
   Dockerfile (PR #24) para os checks de qualidade.
-- **Pendencia** (exige login no Glama): sincronizar o repo, refazer Deploy e Make Release com a
+- **Pendencia** (exige login no Glama com o GitHub do mantenedor; a pagina Admin pedia "Login with
+  GitHub to claim" em 04/10/2026): sincronizar o repo, refazer Deploy e Make Release com a
   2.2.2 e conferir os checks e a contagem.
 
 ### GitHub MCP Registry e galeria do VS Code
@@ -183,13 +181,11 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
 
 ### cursor.directory
 
-- **Evidencia**: o PR #25 registra que a primeira submissao foi **rejeitada** pelo validador
-  ("No plugin components found in: repo root") e que o `mcp.json` na raiz corrige isso. O texto
-  do PR termina em "depois do merge, re-submeter". Nao ha registro de que o reenvio foi feito.
-  Em 04/10/2026 o site respondeu 429 a todas as consultas, entao a presenca nao foi conferida.
-- **O que funciona hoje no Cursor**: o deeplink de 1 clique do README e o `.cursor/mcp.json`.
-- **Pendencia**: abrir cursor.directory logado, procurar por Zihin; se nao estiver, reenviar em
-  cursor.directory/plugins/new e testar a instalacao a partir da listagem.
+- **Evidencia** (04/10/2026): a busca por "zihin" devolve a listagem **Zihin**
+  (cursor.directory/plugins/zihin, "zihin-mcp plugin for Cursor"), com o botao "Add to Cursor" e a
+  config lida do `mcp.json` da raiz: `npx -y @zihin/mcp-server` com `ZIHIN_API_KEY` do ambiente.
+  Ou seja, o reenvio depois do PR #25 foi feito e aceito.
+- **Pendencia**: clicar em "Add to Cursor" numa maquina com o Cursor e confirmar que o server sobe.
 
 ### Extensao e galeria do Gemini CLI
 
@@ -248,15 +244,23 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
         example: zhn_live_xxx
   ```
 
-- **Pendencia**: fork de docker/mcp-registry, `task create` (exige o `task` instalado e Docker
-  rodando), key de teste enviada pelo formulario da Docker e abertura do PR.
+- **Submetido em 04/10/2026**: docker/mcp-registry#5438, a partir do fork `zihin-ai/mcp-registry`
+  (branch `add-zihin`), com `servers/zihin/server.yaml` (commit `d9b3ce1` fixado) e `tools.json`
+  com as 88 tools da resposta real de `tools/list`. `task validate` passou e `task build --tools`
+  construiu a imagem localmente.
+- **Pendencia**: enviar uma key de teste pelo formulario da Docker (link no corpo do PR) e publicar
+  um contato de seguranca no repo (item do checklist deles que ficou desmarcado). Depois do merge,
+  cada release exige um PR de atualizacao do commit fixado.
 
 ### Documentacao publica
 
-- **Evidencia**: zihin-ai/zihin-docs#26 mergeado em 04/10/2026 (88 tools, sem banco do tenant nas
-  paginas de produto, HTTP stateless, secao Updating), conferido contra producao com uma key admin.
-  O site no ar ainda mostrava 96 tools na mesma data: o deploy e manual.
-- **Pendencia**: `vercel --prod` no checkout de zihin-docs e conferir a pagina no ar.
+- **Evidencia**: zihin-ai/zihin-docs#26 mergeado e publicado em 04/10/2026. No ar: 88 tools na
+  pagina do MCP Server e no `llms.txt`, secao Updating presente, e
+  `/agents/triggers/database-event` redireciona (308) para `/agents/tools`.
+- **Deploy**: `vercel --prod` sozinho FALHA (o build remoto nao tem `.git`, e o site usa a data do
+  ultimo commit). O que funciona: `vercel build --prod` seguido de
+  `vercel deploy --prebuilt --prod`, no checkout de zihin-docs.
+- **Pendencia**: nenhuma.
 
 ## Como o usuario que ja instalou recebe uma atualizacao
 
@@ -284,5 +288,6 @@ Depois do fluxo de publicacao (npm `next` -> validacao -> `latest` -> tag -> reg
    `marketplace.json`, a extensao Gemini, a descricao no Smithery e as docs publicas.
 5. Smithery: novo scan. Glama: sync + Deploy + Make Release.
 6. Extensao Gemini: se mudou, release nova com tag igual a `version` do manifest.
-7. Docs publicas: PR em zihin-docs e deploy.
-8. Atualizar a tabela "Canais" e a data de verificacao neste documento.
+7. Docs publicas: PR em zihin-docs e deploy (`vercel build --prod` + `vercel deploy --prebuilt --prod`).
+8. Docker MCP Catalog (depois de aceito): PR em docker/mcp-registry atualizando o commit fixado.
+9. Atualizar a tabela "Canais" e a data de verificacao neste documento.
