@@ -3,8 +3,22 @@
 Pesquisa de 04/10/2026 sobre onde mais vale publicar o MCP do Zihin e o SDK/integracoes
 (`zihin-integrations`), alem dos canais ja acompanhados em `docs/distribuicao.md`.
 
-**Nada aqui foi submetido.** As entradas abaixo estao prontas para copiar; cada submissao e uma
-acao externa e depende de aprovacao.
+**Atualizacao de 05/10/2026.** Parte dos quick wins ja foi enviada, com autorizacao do mantenedor:
+
+| Canal | Situacao |
+|---|---|
+| Raycast MCP Registry | raycast/extensions#31926 mergeado e publicado na loja |
+| punkpeye/awesome-mcp-servers | PR #15738 aberto |
+| TensorBlock/awesome-mcp-servers | PR #3122 aberto |
+| mcp.directory | Formulario enviado em 04/10 |
+| mcp.so | Issue chatmcp/mcpso#4739 (o formulario do site so aceita submissao paga) |
+| PyPI | `zihin` 0.1.0 publicado; repo publico `zihin-ai/zihin-python` |
+| OAuth no `/mcp` | Plano registrado em zihin-ai/zihin-auth#5 |
+
+Seguem sem envio: mcpservers.org e MCP Market (pedem e-mail de contato no formulario), LobeHub
+(login humano na CLI), Zapier (conta dona) e todos os canais das secoes 2 em diante. O estado
+corrente de cada canal fica em `docs/distribuicao.md`; este documento guarda a pesquisa e os
+textos de submissao.
 
 Fonte: tres agentes de pesquisa (diretorios de MCP, marketplaces dos clientes de IA, canais de
 SDK). Os pontos marcados "conferido" foram reverificados depois; o restante e o que os agentes
@@ -267,14 +281,15 @@ Inventario (conferido no npm em 04/10/2026):
 
 ### Risco a tratar
 
-As docs ja anunciam `pip install zihin` como planejado, e o nome `zihin` esta **livre no PyPI**
-(conferido: 404). Qualquer pessoa pode registra-lo. Publicar um cliente minimo de verdade e a
-forma limpa de garantir o nome.
+Resolvido em 05/10/2026: o nome `zihin` foi registrado no PyPI com a publicacao da 0.1.0, um
+cliente minimo (`list_agents`, `invoke_agent`, `stream_agent`). Com um pacote Python no ar, os
+canais que dependiam dele (LangChain, Dify, CrewAI) deixam de estar bloqueados por falta de SDK,
+embora cada um ainda peca um pacote de integracao proprio.
 
-## 6. Ordem sugerida para amanha
+## 6. O que falta
 
-1. Aprovar e enviar: awesome-mcp-servers (punkpeye), TensorBlock e os quatro formularios web.
-2. Raycast, depois de conferir o checklist de PR deles.
-3. LobeHub: rodar a CLI para corrigir a listagem.
-4. Zapier: `zapier push` e submissao, com a conta dona.
-5. Decidir: repo `zihin-integrations` publico, nome `zihin` no PyPI, OAuth no `/mcp`.
+1. Formularios de mcpservers.org e MCP Market, com um e-mail de contato.
+2. LobeHub: rodar a CLI para corrigir a listagem.
+3. Zapier: `zapier push` e submissao, com a conta dona.
+4. Acompanhar os PRs abertos (punkpeye, TensorBlock, Docker) e a issue do mcp.so.
+5. Decidir: tornar publico o `zihin-integrations`; iniciar o OAuth no `/mcp` (zihin-auth#5).
