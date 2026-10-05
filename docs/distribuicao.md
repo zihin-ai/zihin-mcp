@@ -4,7 +4,7 @@ Mapa unico dos canais de distribuicao do `@zihin/mcp-server`: onde estamos, como
 uma atualizacao e como confirmar que ela chegou. Conferir este documento faz parte de toda release
 (ver "Checklist por release" no fim).
 
-**Ultima verificacao geral: 04/10/2026, release 2.2.2.**
+**Ultima verificacao geral: 05/10/2026, release 2.2.2.**
 
 ## Criterio de "concluido"
 
@@ -41,7 +41,7 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
 | MCP Registry oficial | `ai.zihin/mcp-server` em registry.modelcontextprotocol.io | Confirmado | 2.2.2, `active`, `isLatest` | `scripts/registry-publish.sh` apos o `latest` no npm |
 | GitHub Releases | github.com/zihin-ai/zihin-mcp/releases | Confirmado | v2.2.2 (Latest) | `gh release create` manual por tag |
 | Marketplace proprio do Claude Code | `zihin-ai/zihin-mcp` -> `zihin@zihin` | Confirmado | 2.2.2 | Merge no `main` com `version` do `plugin.json` incrementada |
-| Diretorio da Anthropic | claude.ai/directory | Submetido (v2.2.2 passou no scan e esta retida para revisor) | — | Portal: o diretorio acompanha o `main` e revalida cada commit (checagem a cada ~6h) |
+| Diretorio da Anthropic | claude.ai/directory | Submetido (v2.2.2 em revisao por um revisor da Anthropic) | — | Portal: acompanha o `main`; webhook de push configurado, checagem agendada a cada ~6h |
 | Smithery | smithery.ai/servers/zihin/mcp | Publicado, desatualizado | 96 tools, inclui as 9 de conexao removidas; "last deployed 1 month ago" | Painel do Smithery (novo scan + edicao da descricao) |
 | Glama | glama.ai/mcp/servers/zihin-ai/zihin-mcp | Publicado, parcialmente atualizado | README de 04/10 (88 tools) e release 2.2.2; a lista "Available Tools" ainda mostrava 96 logo apos o release | Sync do repo no painel; Auto-Release constroi a cada GitHub Release |
 | GitHub MCP Registry | github.com/mcp | Ausente | — | Curadoria do GitHub; nao e espelho do registry oficial |
@@ -52,6 +52,12 @@ Responsavel por todos os canais, salvo indicacao: `@oliveiraronan`.
 | Docker MCP Catalog | hub.docker.com/mcp | Submetido (docker/mcp-registry#5438, aguardando revisao) | — | PR em docker/mcp-registry; a Docker constroi a imagem a partir do commit fixado |
 | Docker Hub / GHCR (imagem propria) | — | Ausente | — | Nao ha publicacao de imagem no CI |
 | Documentacao publica | docs.zihin.ai/integrations/mcp-server | Confirmado | 88 tools | PR em zihin-ai/zihin-docs + deploy manual com build local |
+| Raycast MCP Registry | extensao "Model Context Protocol Registry" da loja do Raycast | Publicado (PR mergeado em 05/10; instalacao pelo Raycast nao testada) | `npx -y @zihin/mcp-server`, sem versao | PR em `raycast/extensions` |
+| awesome-mcp-servers (punkpeye) | github.com/punkpeye/awesome-mcp-servers | Submetido (PR #15738 aberto) | — | PR de uma linha no README |
+| awesome-mcp-servers (TensorBlock) | github.com/TensorBlock/awesome-mcp-servers | Submetido (PR #3122 aberto) | — | PR de uma linha em `docs/ai--llm-integration.md` |
+| mcp.directory | mcp.directory | Submetido (formulario em 04/10; revisao prometida em 24 h) | — | Formulario; o site le os metadados do GitHub |
+| mcp.so | mcp.so | Submetido (issue chatmcp/mcpso#4739) | — | Issue; o formulario do site so aceita submissao paga |
+| PyPI (cliente Python) | pypi.org/project/zihin | Confirmado | 0.1.0 | GitHub Release em `zihin-ai/zihin-python` dispara o `publish.yml` (Trusted Publishing) |
 
 ## Evidencia e pendencia por canal
 
@@ -106,11 +112,14 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
     restantes, nenhum bloqueante: sem `icon` no `plugin.json` e server MCP local (nao roda no
     claude.ai web). O resumo da submissao continua exibindo o bloqueio da v2.2.1 ate a v2.2.2 ser
     liberada.
-  - **Raiz do repositorio** (criada em 01/09): o commit `5e54f53` passou e esta "pronto para
-    publicar"; o commit seguinte falhou porque o `mcp.json` da raiz usa `npx` sem versao. A raiz
-    nao e o plugin: e uma duplicata a retirar (Withdraw submission), decisao do mantenedor.
-  - Nada esta publicado no diretorio. Atualizacoes: so checagem agendada (~6h); o webhook de push
-    nao esta configurado.
+  - **Raiz do repositorio** (criada em 01/09): era uma duplicata apontando para a raiz, que nao e
+    o plugin. Retirada em 04/10/2026 por decisao do mantenedor.
+  - **Estado em 05/10/2026**: a submissao saiu de "Needs changes" para "Em revisao". Verificacao
+    de seguranca concluida; a v2.2.2 esta com um revisor ("Held for: Content policy review",
+    motivo "Runs a pinned npx or uvx package"). Nada publicado ainda.
+  - **Webhook de push** criado em 04/10 no repo (evento `push`, JSON); o ping inicial foi aceito.
+    O portal ainda mostrava "no push to the tracked branch yet" em 05/10, porque o unico push
+    posterior foi forcado; confirmar no proximo push normal.
 - **Situacao frente ao validador do portal** (checklist de pre-submissao da Anthropic), depois do
   PR #32:
 
@@ -131,12 +140,12 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
 - **Decisao em aberto**: trocar `${ZIHIN_API_KEY}` do ambiente por `userConfig` com
   `sensitive: true`. Tira a retencao por credencial, mas quem ja usa o plugin com a variavel
   exportada passa a ser perguntado pela key.
-- **Proximos passos no portal** (claude.ai/directory/manage):
-  1. Acompanhar a submissao da pasta `plugin` ate o revisor liberar a v2.2.2; quando passar,
-     **Publish** na pagina do plugin.
-  2. Retirar a submissao duplicada da raiz do repositorio.
-  3. Opcional: configurar o webhook de push (Configuracoes -> Atualizacoes) e acrescentar `icon`
-     (SVG ou PNG 512x512 dentro de `plugin/`) ao `plugin.json`.
+- **Proximos passos no portal**
+  (https://claude.ai/directory/manage/plugins/e7b8ae79-0d0d-43b5-8dbb-5081d2349969):
+  1. Aguardar a decisao do revisor sobre a v2.2.2; quando passar, **Publish** nessa pagina.
+  2. Se nada mudar em um ou dois dias uteis, escrever para directory@anthropic.com citando a
+     v2.2.2.
+  3. Opcional: acrescentar `icon` (SVG ou PNG 512x512 dentro de `plugin/`) ao `plugin.json`.
 - **Segunda submissao recomendada**: o endpoint remoto `https://llm.zihin.ai/mcp` como
   **MCP connector**. A Anthropic recomenda as duas para quem opera o proprio server remoto. Os
   requisitos de autenticacao do connector nao foram conferidos nesta rodada.
@@ -275,6 +284,46 @@ O processo atual tem dois destinos diferentes, e uma submissao nao cobre o outro
   ultimo commit). O que funciona: `vercel build --prod` seguido de
   `vercel deploy --prebuilt --prod`, no checkout de zihin-docs.
 - **Pendencia**: nenhuma.
+
+### Canais novos (04 e 05/10/2026)
+
+A pesquisa completa, com os canais ainda nao atacados e os bloqueios, esta em
+`docs/novos-canais.md`.
+
+- **Raycast**: raycast/extensions#31926 mergeado em 05/10/2026 e publicado na loja do Raycast.
+  A entrada usa `npx -y @zihin/mcp-server` com `ZIHIN_API_KEY`. Falta instalar pelo Raycast e
+  confirmar.
+- **punkpeye/awesome-mcp-servers**: PR #15738 aberto. O bot do repo pede que o server tenha nota
+  de qualidade no Glama, o que depende da release 2.2.2 ja feita la.
+- **TensorBlock/awesome-mcp-servers**: PR #3122 aberto.
+- **mcp.directory**: formulario enviado em 04/10; conferir se a listagem apareceu.
+- **mcp.so**: issue chatmcp/mcpso#4739. A fila de issues e longa.
+- **Nao enviados**: mcpservers.org e MCP Market pedem um e-mail de contato no formulario e ficaram
+  com o mantenedor; LobeHub exige login humano na CLI; Zapier exige a conta dona.
+- Forks criados na org para esses PRs: `zihin-ai/awesome-mcp-servers`,
+  `zihin-ai/tensorblock-awesome-mcp-servers`, `zihin-ai/raycast-extensions` e
+  `zihin-ai/mcp-registry` (Docker). Podem ser apagados depois que os PRs fecharem.
+
+### PyPI — cliente Python `zihin`
+
+- **Evidencia** (05/10/2026): `zihin` 0.1.0 publicado em pypi.org/project/zihin a partir do repo
+  publico `zihin-ai/zihin-python`. Instalado do PyPI num ambiente limpo: `list_agents` e um
+  `invoke_agent` real funcionaram contra producao. A continuidade de sessao nao foi testada contra
+  producao.
+- **Escopo**: `list_agents`, `invoke_agent`, `stream_agent` e `ZihinError`. Contexto estruturado,
+  anexos, triggers e tasks existem so no `@zihin/agent-client`.
+- **Como recebe atualizacao**: bump de versao em `pyproject.toml` e `src/zihin/__init__.py`,
+  depois uma GitHub Release com a tag `vX.Y.Z`; o workflow confere tag contra versao e publica por
+  Trusted Publishing, sem token.
+- **Pendencia**: adicionar um segundo Owner ao projeto no PyPI.
+
+### OAuth no `/mcp` e idioma das descricoes
+
+Dois itens de produto que limitam a distribuicao e sao conduzidos fora deste repo:
+
+- **OAuth**: plano registrado em zihin-ai/zihin-auth#5 (comentario de 04/10/2026). O repo lider e
+  o `zihin-auth`; aqui so mudam `server.json`, README e um teste de regressao.
+- **Descricoes em ingles**: zihin-ai/zihin-agent-builder#702.
 
 ## Como o usuario que ja instalou recebe uma atualizacao
 
