@@ -45,9 +45,9 @@ Optional environment variables:
 
 ## Troubleshooting
 
-- `ZIHIN_API_KEY nao definida`: the environment variable did not reach the process. Check the
+- `ERRO: ZIHIN_API_KEY não definida.`: the environment variable did not reach the process. Check the
   `env` block.
-- `API Key invalida ou revogada`: the key was rejected by the server. Ask the user for a new one.
+- `ERRO FATAL: API Key inválida ou revogada.`: the key was rejected by the server. Ask the user for a new one.
 - Tools do not appear: restart the client after changing the configuration.
 
 Messages printed by the proxy are in Portuguese. Full documentation, in English:
