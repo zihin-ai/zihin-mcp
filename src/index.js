@@ -24,7 +24,13 @@ const VERSION = createRequire(import.meta.url)('../package.json').version;
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
+// Intervalo MÍNIMO do keepalive. Desde que o server emite `ttlMs` no tools/list
+// (SEP-2549, BE 2026.11.x), o intervalo efetivo é max(este, ttlMs) com jitter de
+// ±10%: o TTL é a declaração do server de quanto a lista fica fresca, e sondar
+// mais rápido que isso só gasta ~100 KB por tick. Sem `ttlMs` (server antigo ou
+// era legada), fica o valor histórico.
 const KEEPALIVE_INTERVAL_MS = 30_000;
+const KEEPALIVE_MAX_MS = 15 * 60_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -89,6 +95,8 @@ export async function startProxy() {
   let remotePrompts = [];
   let reconnecting = false;
   let keepaliveTimer = null;
+  // Geração do keepalive: um tick EM VOO que termina depois de stopKeepalive() não rearma.
+  let keepaliveGeneration = 0;
   let inFlightRemoteCalls = 0; // ver a guarda no keepalive
 
   /** Atualiza o cache de tools mantendo a assinatura de conteúdo em sincronia. */
@@ -240,9 +248,18 @@ export async function startProxy() {
 
   // --- Smart keepalive (Fix 4) ---
 
-  function startKeepalive() {
+  /** Intervalo do próximo tick a partir do `ttlMs` anunciado pelo server (0/ausente = mínimo). */
+  function keepaliveDelayMs(ttlMs) {
+    const base = Math.min(KEEPALIVE_MAX_MS, Math.max(KEEPALIVE_INTERVAL_MS, Number.isFinite(ttlMs) ? ttlMs : 0));
+    const jitter = base * 0.1 * (Math.random() * 2 - 1);
+    return Math.round(base + jitter);
+  }
+
+  function startKeepalive(delayMs = KEEPALIVE_INTERVAL_MS) {
     stopKeepalive();
-    keepaliveTimer = setInterval(async () => {
+    const generation = ++keepaliveGeneration;
+    keepaliveTimer = setTimeout(async () => {
+      let nextDelay = KEEPALIVE_INTERVAL_MS;
       // Com o teto de 300s, um chat_with_agent pode ficar 4 minutos em voo —
       // dez ticks de keepalive por cima dele. Se UM tick falhar (502 de LB,
       // blip de rede), o reconnect() fecha o client e o close() ABORTA o
@@ -252,7 +269,7 @@ export async function startProxy() {
       // conexão realmente caiu é ele quem falha primeiro — aí o withRetry
       // reconecta. Detecção de mudança de tools só atrasa o que durar a
       // chamada.
-      if (inFlightRemoteCalls > 0) return;
+      if (inFlightRemoteCalls > 0) { if (generation === keepaliveGeneration) startKeepalive(); return; }
       try {
         // Discovery contínuo: detecta mudança nas tools + valida auth.
         // Com o server stateless este é o ÚNICO detector de mudança — não há
@@ -268,6 +285,7 @@ export async function startProxy() {
         //    callTool seguinte a re-derivar o índice de output-validators
         //    (recompilação AJV de até ~110ms); bypass não escreve.
         const result = await remoteClient.listTools(undefined, { cacheMode: 'bypass' });
+        nextDelay = keepaliveDelayMs(result.ttlMs);
         const signature = JSON.stringify(result.tools);
         if (signature !== remoteToolsSignature) {
           log(`Keepalive: tools atualizadas (${remoteTools.length} → ${result.tools.length})`);
@@ -280,13 +298,16 @@ export async function startProxy() {
         failIfFatal(error);
         log('Keepalive falhou — reconectando...');
         reconnect();
+        return;
       }
-    }, KEEPALIVE_INTERVAL_MS);
+      if (generation === keepaliveGeneration) startKeepalive(nextDelay);
+    }, delayMs);
   }
 
   function stopKeepalive() {
+    keepaliveGeneration++;
     if (keepaliveTimer) {
-      clearInterval(keepaliveTimer);
+      clearTimeout(keepaliveTimer);
       keepaliveTimer = null;
     }
   }

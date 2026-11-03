@@ -39,7 +39,7 @@ Para QUALQUER payload estruturado (`schema_data`, `trigger_config`, `rules` de C
 ## Convenções
 
 - IDs são UUIDs — descubra via tools `list_*` antes de operar; nunca invente IDs.
-- Respostas são JSON; `{ success: false, error }` = falha de negócio (leia o `error`, ele orienta a correção).
+- Respostas são JSON (e vêm também em `structuredContent`); `{ success: false, error: { code, message } }` = falha de negócio. Ramifique pelo `code` (`NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, `INSUFFICIENT_PERMISSIONS`, `PLAN_LIMIT_REACHED`, `ERROR` = genérico) e leia a correção no `message`; detalhes estruturados, quando existem, vêm ao lado (`details`, `errors`, `validation`).
 - **`warnings` no sucesso não é decoração.** Uma resposta pode vir `success: true` **com** `warnings` — é a plataforma dizendo "gravei, mas isto vai te morder depois" (ex.: modelo acima do tier passa no save e barra no `publish_agent`). Trate o aviso no momento em que ele aparece.
 - `chat_with_agent` e `test_trigger` executam o agente DE VERDADE (consomem tokens do tenant e podem disparar efeitos externos).
 - Erros comuns de plano: `PLAN_LIMIT_REACHED` (máx. de agentes), `MODEL_TIER_RESTRICTED` (modelo acima do tier — aparece no `publish_agent`, não no save, que só avisa), `QUOTA_EXCEEDED` (franquia de tokens).
