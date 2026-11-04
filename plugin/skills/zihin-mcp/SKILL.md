@@ -7,17 +7,19 @@ description: Skill roteadora do MCP Zihin. Use ao iniciar qualquer trabalho com 
 
 O MCP Server da Zihin gerencia **agentes de IA multi-tenant**: o tenant vem da API Key (confirme com `whoami` — retorna tenant, role e plano). Toda operação é automaticamente escopada ao tenant da key.
 
-## Mapa de categorias (88 tools)
+## Mapa de categorias (106 tools)
 
 | Categoria | O que faz | Roles |
 |---|---|---|
 | consumer (5) | `whoami`, descobrir agentes publicados, conversar (`chat_with_agent`), histórico de sessões | todos |
 | consumer-profile (3) | leitura agregada de consumidores finais e suas sessões | owner/admin/editor |
-| consumer-ops (5) | denylist do tenant, controle de sessão (suspender/handoff), controle de engajamento por consumidor, mensagem manual, cancelar turno | owner/admin |
-| builder-read (40) | `list_*`/`get_*`/`validate_*`/`compare_*` + budget/approvals reads + observabilidade | owner/admin/editor |
-| builder-write (35) | `create_*`/`update_*`/`delete_*`/`toggle_*`/`publish_*`/`rollback_*`/`test_*` + `set_agent_budget` | owner/admin |
+| consumer-ops (10) | denylist do tenant, controle de sessão (suspender/handoff), controle de engajamento por consumidor, mensagem manual, cancelar turno, limpar/arquivar/desarquivar conversa (`clear_session`, `archive_session`, `unarchive_session`), cancelar instância de processo e resolver incidente como operador | owner/admin |
+| builder-read (49) | `list_*`/`get_*`/`validate_*`/`compare_*` + budget/approvals reads + observabilidade (incl. `list_executions`, busca por trace_id/sessão/status/período) + definições, instâncias, estado do motor de processos e desfecho de comando (`get_process_command`, só admin/owner) | owner/admin/editor |
+| builder-write (39) | `create_*`/`update_*`/`delete_*`/`toggle_*`/`publish_*`/`rollback_*`/`test_*` + `set_agent_budget` + publicar/aposentar/liberar definição de processo | owner/admin |
 
 A lista de tools que você vê JÁ reflete seu role — se uma tool de escrita não aparece, sua key é editor/member.
+
+**Processos** (playbook completo: `zihin://skills/processos`; contrato: `zihin://schemas/process_definition`) têm duas entidades: a DEFINIÇÃO (o modelo, publicado antes) e a INSTÂNCIA (aberta pelo agente na conversa com `open_process`). Para ver o que existe: `list_process_definitions`, `get_process_definition`, `get_process_engine_status`; antes de publicar, `validate_process_definition` (confere estrutura e se agentes/políticas/servidores citados são desta empresa); depois `publish_process_definition` (próxima versão; a receita do worker fica na definição e o agente só escolhe) ou `retire_process_definition` (aposenta todas as versões da key). Instâncias (as execuções) da empresa: `list_process_instances`, `get_process_instance`, `get_process_trail`; `cancel_process_instance` e `resolve_process_incident` (retry/abandon/substitute_output — nunca aprovação) intervêm em nome da empresa (fica na trilha). Publicada não é liberada: `enable_process` (uma key ou `*`) deixa os agentes abrirem, `disable_process` retira. Publicar e liberar exigem key criada por admin/owner ainda ativo.
 
 ## Workflow contract-first (evita tentativa e erro)
 

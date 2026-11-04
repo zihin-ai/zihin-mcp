@@ -210,7 +210,7 @@ O pacote atua como um **proxy transparente** entre o cliente MCP local (via stdi
 
 ## Skills — deixe seu IDE especialista no Zihin
 
-O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
+O servidor expoe 7 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca, processos) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
 
 Para instalar tambem no formato NATIVO do seu client (ativacao automatica por contexto):
 
@@ -237,7 +237,7 @@ claude plugin marketplace add zihin-ai/zihin-mcp
 claude plugin install zihin@zihin
 ```
 
-O plugin instala o MCP server (via este pacote) + as 6 skills. Requer `ZIHIN_API_KEY` exportada no ambiente.
+O plugin instala o MCP server (via este pacote) + as 7 skills. Requer `ZIHIN_API_KEY` exportada no ambiente.
 
 ## Capabilities
 
@@ -245,11 +245,11 @@ As capabilities disponiveis dependem do role da API Key, controlado server-side:
 
 | Role | Tools | Resources | Prompts |
 |------|-------|-----------|---------|
-| `admin` | Todas (88) | 19 | 3 |
-| `editor` | Leitura (48 — writes nao sao listadas) | 19 | 3 |
+| `admin` | Todas (106) | 21 | 3 |
+| `editor` | Leitura (57 — writes nao sao listadas) | 21 | 3 |
 | `member` | Subset consumer (5) | - | - |
 
-Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources — 3 catalogos + 10 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
+Contagens conferidas contra o servidor em 03/11/2026 (106 tools / 21 resources — 3 catalogos + 11 schemas + 7 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
 
 ### Resources disponiveis
 
@@ -259,7 +259,7 @@ Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources —
 | `zihin://models` | Catalogo de modelos LLM disponiveis |
 | `zihin://schema-templates` | Templates de schema para configuracao |
 | `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
-| `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
+| `zihin://skills/{slug}` | Playbooks procedurais (7 skills — ver secao Skills acima) |
 
 ### Prompts disponiveis
 

@@ -8,9 +8,9 @@ agents, configure tools and triggers, set budgets and approval policies, and dia
 - **The `zihin` MCP server.** It runs the official [`@zihin/mcp-server`](https://www.npmjs.com/package/@zihin/mcp-server)
   npm package through `npx`. The package is a stdio proxy: it forwards MCP requests over HTTPS to
   `https://llm.zihin.ai/mcp` and returns the responses. It talks to no other destination.
-- **Six skills** with the platform playbooks: `zihin-mcp` (router), `zihin-criar-agente`,
+- **Seven skills** with the platform playbooks: `zihin-mcp` (router), `zihin-criar-agente`,
   `zihin-tools-de-agente`, `zihin-triggers-e-canais`, `zihin-diagnostico` and
-  `zihin-governanca-e-operacao`. They are plain Markdown and run nothing.
+  `zihin-governanca-e-operacao`, `zihin-processos`. They are plain Markdown and run nothing.
 
 ## Requirements
 

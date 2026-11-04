@@ -2,6 +2,9 @@
 
 ## Nao publicado
 
+- **Keepalive respeita o `ttlMs` do catalogo (SEP-2549)**: o tick de `tools/list` passa de 30 s fixos para `max(30 s, ttlMs)` com jitter de +-10% (teto 15 min) e um tick em voo nao rearma depois de `stopKeepalive`. Com o backend 2026.11.x anunciando 5 min, o proxy ocioso deixa de puxar ~100 KB a cada 30 s.
+- **Skills sincronizadas com a fonte** (`plugin/skills/ORIGEM.md` guarda o SHA): 7 skills (+`zihin-processos`), copias byte a byte de `server-llm/mcp-server/skills`. Manifestos e README com as contagens atuais (106 tools / 21 resources / 7 skills). A skill `zihin-mcp` descreve o formato novo de erro (`error: { code, message }`).
+
 - **Plugin Claude Code com versao fixa do proxy**: `plugin/.mcp.json` passa a rodar `npx -y @zihin/mcp-server@2.2.2` em vez de resolver o `latest` a cada boot. E requisito do diretorio da Anthropic (launcher sem versao exata bloqueia a submissao). Consequencia: o plugin so recebe um proxy novo quando o plugin e atualizado; o pin entra na lista de bumps de cada release e e conferido pelo `scripts/registry-publish.sh` e por `test/plugin-manifest.test.js`. O `mcp.json` da raiz (padrao Open Plugins) continua sem pin.
 - **`plugin/README.md`**: exigido pelo mesmo diretorio; declara o que o plugin executa e para onde envia dados.
 

@@ -89,15 +89,16 @@ test('upsertCodexBlock é idempotente (substitui bloco existente)', () => {
   assert.match(updated, /Regra existente/, 'conteúdo fora do bloco preservado');
 });
 
-test('loadBundledSkills lê as 6 skills empacotadas', () => {
+test('loadBundledSkills lê as 7 skills empacotadas (+zihin-processos, sincronia nov/2026)', () => {
   const skills = loadBundledSkills();
-  assert.equal(skills.length, 6);
+  assert.equal(skills.length, 7);
   const names = skills.map(s => s.name).sort();
   assert.deepEqual(names, [
     'zihin-criar-agente',
     'zihin-diagnostico',
     'zihin-governanca-e-operacao',
     'zihin-mcp',
+    'zihin-processos',
     'zihin-tools-de-agente',
     'zihin-triggers-e-canais',
   ]);
