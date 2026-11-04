@@ -4,7 +4,7 @@ Mapa unico dos canais de distribuicao do `@zihin/mcp-server`: onde estamos, como
 uma atualizacao e como confirmar que ela chegou. Conferir este documento faz parte de toda release
 (ver "Checklist por release" no fim).
 
-**Ultima verificacao geral: 05/10/2026, release 2.2.2.**
+**Ultima verificacao geral: 05/10/2026, release 2.2.2.** Em 04/11/2026 o backend passou ao servidor MCP 2.5.0 (106 tools / 21 resources / 7 skills) e o proxy 2.3.0 foi preparado em branch (nao publicado) — os canais abaixo com contagem fixa precisam de nova rodada apos a publicacao; ver `docs/analysis/mcp-plugins-2026-11-03/canais-distribuicao.md` no repo do backend.
 
 ## Criterio de "concluido"
 
