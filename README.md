@@ -1,13 +1,41 @@
 # @zihin/mcp-server
 
-Proxy MCP stdio-to-HTTP para a plataforma [Zihin.ai](https://zihin.ai). Conecta clientes MCP ao Zihin MCP Server via HTTP.
+**Converse com seus agentes de IA da [Zihin.ai](https://www.zihin.ai) e gerencie-os direto do seu IDE ou assistente** — Claude, Cursor, VS Code, Codex, Gemini CLI ou qualquer cliente MCP.
 
+[![npm version](https://img.shields.io/npm/v/@zihin/mcp-server?style=flat-square)](https://www.npmjs.com/package/@zihin/mcp-server)
+[![npm downloads](https://img.shields.io/npm/dm/@zihin/mcp-server?style=flat-square)](https://www.npmjs.com/package/@zihin/mcp-server)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-ai.zihin%2Fmcp--server-blue?style=flat-square)](https://registry.modelcontextprotocol.io/v0/servers?search=ai.zihin/mcp-server)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![smithery badge](https://smithery.ai/badge/zihin/mcp)](https://smithery.ai/servers/zihin/mcp)
 [![zihin-mcp MCP server](https://glama.ai/mcp/servers/zihin-ai/zihin-mcp/badges/score.svg)](https://glama.ai/mcp/servers/zihin-ai/zihin-mcp)
+
+> Se este projeto for útil para você, uma ⭐ ajuda outras pessoas a encontrá-lo.
+
+Proxy MCP stdio-to-HTTP para a plataforma Zihin.ai. Conecta clientes MCP ao Zihin MCP Server via HTTP.
 
 ```
 Cliente MCP <-stdio-> [@zihin/mcp-server] <-HTTP-> https://llm.zihin.ai/mcp
 ```
+
+### Em 30 segundos
+
+1. Gere uma API Key no console da Zihin.
+2. Registre o servidor no seu cliente — no Claude Code, por exemplo:
+   ```bash
+   claude mcp add zihin -e ZIHIN_API_KEY=zhn_live_xxx -- npx -y @zihin/mcp-server
+   ```
+   Claude Desktop, Cursor (1 clique), VS Code (1 clique), Windsurf, Gemini CLI e Codex: ver [Configuracao](#configuracao).
+3. Peça ao assistente: *"liste meus agentes Zihin"* ou *"converse com o agente X"*.
+
+### O que você pode fazer
+
+- **Conversar com agentes publicados** (`chat_with_agent`, com continuidade de sessão).
+- **Criar e configurar agentes**: persona, tools de API externa, MCP servers externos e publicação — com o prompt guiado `setup-agent`.
+- **Conectar canais e automações**: triggers de webhook (WhatsApp, Slack, Teams, n8n), agendados e por e-mail.
+- **Governar**: teto de gasto por agente, políticas de segurança e aprovação humana antes de ações sensíveis.
+- **Diagnosticar**: métricas por agente, traces de execução e saúde do tenant.
+
+Até 88 tools para uma key `admin` (ver [Capabilities](#capabilities)); o que cada key enxerga depende do role. Documentação completa: [docs.zihin.ai](https://docs.zihin.ai) · Site: [www.zihin.ai](https://www.zihin.ai)
 
 ## Inicio rapido
 
@@ -303,3 +331,7 @@ O proxy espera ate 5 minutos por um `tools/call`. Quando essa mensagem aparece, 
 ## Licenca
 
 MIT
+
+---
+
+Feito pela [Zihin.ai](https://www.zihin.ai). Se este projeto for útil, uma ⭐ ajuda outras pessoas a encontrá-lo.
