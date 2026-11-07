@@ -4,7 +4,7 @@ Mapa unico dos canais de distribuicao do `@zihin/mcp-server`: onde estamos, como
 uma atualizacao e como confirmar que ela chegou. Conferir este documento faz parte de toda release
 (ver "Checklist por release" no fim).
 
-**Ultima verificacao geral: 05/10/2026, release 2.2.2.** Em 04/11/2026 o backend passou ao servidor MCP 2.5.0 (106 tools / 21 resources / 7 skills) e o proxy 2.3.0 foi preparado em branch (nao publicado) — os canais abaixo com contagem fixa precisam de nova rodada apos a publicacao; ver `docs/analysis/mcp-plugins-2026-11-03/canais-distribuicao.md` no repo do backend.
+**Ultima verificacao geral: 05/10/2026, release 2.2.2.** Em 04/11/2026 o backend passou ao servidor MCP 2.5.0 (106 tools / 21 resources / 7 skills) e o proxy 2.3.0 foi preparado em branch (nao publicado) — os canais abaixo com contagem fixa precisam de nova rodada apos a publicacao; ver `docs/analysis/mcp-plugins-2026-11-03/canais-distribuicao.md` no repo do backend. Em 06/11/2026 o servidor ganhou o login de pessoa em `/mcp/t/{tenant_id}` (ver "OAuth no `/mcp`" abaixo); as vitrines seguem descrevendo a superficie da API Key (106 tools para owner/admin).
 
 ## Criterio de "concluido"
 
@@ -321,8 +321,15 @@ A pesquisa completa, com os canais ainda nao atacados e os bloqueios, esta em
 
 Dois itens de produto que limitam a distribuicao e sao conduzidos fora deste repo:
 
-- **OAuth**: plano registrado em zihin-ai/zihin-auth#5 (comentario de 04/10/2026). O repo lider e
-  o `zihin-auth`; aqui so mudam `server.json`, README e um teste de regressao.
+- **OAuth (login de pessoa)**: entregue no proprio servidor MCP, no `zihin-agent-builder` (branch
+  `feat/mcp-oauth`, nov/2026; doc tecnico `server-llm/docs/technical/MCP-OAUTH.md`). O dono e o
+  backend, nao o `zihin-auth`: o servidor e o recurso protegido por empresa em
+  `https://llm.zihin.ai/mcp/t/{tenant_id}` e o login e delegado ao console. O `/mcp` generico segue
+  so com API Key, e o server card do `/mcp` anuncia so `apiKey`. Neste repo mudaram so README,
+  `plugin/README.md` e as skills; o proxy e o plugin seguem no modo API Key (o `.mcp.json` nao fixa
+  `--client-id` por pessoa x empresa). `server.json` continua anunciando so o remoto `/mcp` com
+  `X-Api-Key`: o servidor por empresa nao e uma URL unica, entao nao cabe como `remote` fixo.
+  Pelo login, owner/admin veem 86 tools (20 vetadas pela politica de delegacao).
 - **Descricoes em ingles**: zihin-ai/zihin-agent-builder#702.
 
 ## Como o usuario que ja instalou recebe uma atualizacao
