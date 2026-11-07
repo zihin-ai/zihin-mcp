@@ -27,6 +27,8 @@ Cliente MCP <-stdio-> [@zihin/mcp-server] <-HTTP-> https://llm.zihin.ai/mcp
    Claude Desktop, Cursor (1 clique), VS Code (1 clique), Windsurf, Gemini CLI e Codex: ver [Configuracao](#configuracao).
 3. Peça ao assistente: *"liste meus agentes Zihin"* ou *"converse com o agente X"*.
 
+Prefere entrar com a sua conta da Zihin, sem API Key? Claude Code, Codex e Cursor conectam direto ao servidor da empresa — ver [Login de pessoa](#login-de-pessoa-sem-api-key).
+
 ### O que você pode fazer
 
 - **Conversar com agentes publicados** (`chat_with_agent`, com continuidade de sessão).
@@ -35,7 +37,7 @@ Cliente MCP <-stdio-> [@zihin/mcp-server] <-HTTP-> https://llm.zihin.ai/mcp
 - **Governar**: teto de gasto por agente, políticas de segurança e aprovação humana antes de ações sensíveis.
 - **Diagnosticar**: métricas por agente, traces de execução e saúde do tenant.
 
-Até 88 tools para uma key `admin` (ver [Capabilities](#capabilities)); o que cada key enxerga depende do role. Documentação completa: [docs.zihin.ai](https://docs.zihin.ai) · Site: [www.zihin.ai](https://www.zihin.ai)
+Até 106 tools para uma key `owner`/`admin` (ver [Capabilities](#capabilities)); o que cada conexão enxerga depende do role e da forma de entrar. Documentação completa: [docs.zihin.ai](https://docs.zihin.ai) · Site: [www.zihin.ai](https://www.zihin.ai)
 
 ## Inicio rapido
 
@@ -192,12 +194,66 @@ ZIHIN_API_KEY = "zhn_live_xxx"
 
 Qualquer cliente que suporte o protocolo MCP via stdio pode usar este pacote. O padrao de configuracao e o mesmo: executar `npx -y @zihin/mcp-server` com a variavel `ZIHIN_API_KEY` definida.
 
+## Login de pessoa (sem API Key)
+
+Em vez de uma API Key, a pessoa pode conectar o assistente com o **login da própria conta da Zihin**. Cada empresa tem a sua URL:
+
+```
+https://llm.zihin.ai/mcp/t/{tenant_id}
+```
+
+`{tenant_id}` é o UUID da empresa em **minúsculas** e **sem barra final** (outra grafia responde `404`). Não precisa montar à mão: o console mostra a URL pronta em **Conectar um assistente (MCP)**, na página **API Keys** e na página pessoal **/assistentes** (aberta a todos os papéis, inclusive `member`). Esse modo **não usa este pacote**: o assistente fala direto com o servidor pelo transporte HTTP nativo dele. Na primeira chamada o assistente abre o navegador, você entra com a conta da Zihin e confirma a empresa; depois ele renova o acesso sozinho. Uma conexão vale para **uma empresa** — para outra, adicione outro servidor com a URL dela.
+
+**Claude Code** — no console, em **Conectar um assistente (MCP)**, clique em **Gerar comando**. O comando traz um `--client-id` que é só seu naquela empresa (é o que permite revogar só essa conexão):
+
+```bash
+claude mcp add --transport http --client-id SEU_CLIENT_ID zihin-sua-empresa https://llm.zihin.ai/mcp/t/{tenant_id}
+```
+
+Rode o comando e chame qualquer tool da Zihin (ou `/mcp` no Claude Code) para entrar. Depois de revogar, gere o comando de novo.
+
+**Codex**:
+
+```bash
+codex mcp add zihin-sua-empresa --url https://llm.zihin.ai/mcp/t/{tenant_id}
+```
+
+**Cursor** — adicione um **servidor MCP remoto** com a URL da empresa, por exemplo em `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "zihin-sua-empresa": {
+      "url": "https://llm.zihin.ai/mcp/t/{tenant_id}"
+    }
+  }
+}
+```
+
+Outros clientes (Claude Desktop, claude.ai e demais) ainda não foram verificados com o login: neles, use a API Key com este pacote.
+
+O que muda com o login:
+
+- **Papel da pessoa na empresa**, lido a cada requisição (não vem da API Key). Pelo login, `owner`/`admin` veem **86 tools**: ficam de fora as 20 que criam credencial ou acesso que continuaria valendo depois de revogar a conexão (API Keys, secrets, triggers, servidores MCP, CSPs e políticas de aprovação, restaurar versão/snapshot, clonar agente, publicar definição de processo e ligar processo). Essas etapas são feitas no console ou com uma API Key. `editor` (57) e `member` (5) não perdem nada. Detalhes: [docs.zihin.ai — o que a pessoa conectada não faz](https://docs.zihin.ai/integrations/mcp-server#oauth-delegation).
+- **Revogar** pelo console (**/assistentes** para as suas conexões; admin/owner veem as da empresa) corta o acesso na hora — ver [Assistentes conectados](https://docs.zihin.ai/integrations/mcp-server#connected-assistants).
+- O endpoint genérico `https://llm.zihin.ai/mcp` segue **só com API Key**.
+
+**O plugin Claude Code e este pacote continuam no modo API Key.** O `.mcp.json` do plugin não tem como fixar um `--client-id` por pessoa × empresa, então o login de pessoa no Claude Code é pelo comando gerado no console, não pelo plugin. As skills do plugin funcionam com qualquer das duas conexões.
+
+**API Key no servidor da empresa**: a API Key da empresa também vale em `/mcp/t/{tenant_id}`. Para apontar o pacote para lá, use a URL da **mesma empresa** da key:
+
+```bash
+ZIHIN_API_KEY=zhn_live_xxx ZIHIN_MCP_URL=https://llm.zihin.ai/mcp/t/{tenant_id} npx -y @zihin/mcp-server
+```
+
+Com a key, o que vale é o role da key (as 106 tools para `owner`/`admin`), como no `/mcp`.
+
 ## Variaveis de ambiente
 
 | Variavel | Obrigatoria | Descricao |
 |----------|-------------|-----------|
 | `ZIHIN_API_KEY` | Sim | API Key do tenant (formato `zhn_live_*`, `zhn_test_*` ou `zhn_dev_*`) |
-| `ZIHIN_MCP_URL` | Nao | URL do MCP Server (default: `https://llm.zihin.ai/mcp`) |
+| `ZIHIN_MCP_URL` | Nao | URL do MCP Server (default: `https://llm.zihin.ai/mcp`). Aceita também o servidor da empresa, `https://llm.zihin.ai/mcp/t/{tenant_id}`, com a API Key da mesma empresa |
 | `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. As skills do backend 2026.10.5 informam teto operacional de 180s para os canais externos, incluindo `chat_with_agent`; esse valor depende da configuracao do servidor. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
 
 ## Como funciona
@@ -210,7 +266,7 @@ O pacote atua como um **proxy transparente** entre o cliente MCP local (via stdi
 
 ## Skills — deixe seu IDE especialista no Zihin
 
-O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
+O servidor expoe 7 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca, processos) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
 
 Para instalar tambem no formato NATIVO do seu client (ativacao automatica por contexto):
 
@@ -237,7 +293,7 @@ claude plugin marketplace add zihin-ai/zihin-mcp
 claude plugin install zihin@zihin
 ```
 
-O plugin instala o MCP server (via este pacote) + as 6 skills. Requer `ZIHIN_API_KEY` exportada no ambiente.
+O plugin instala o MCP server (via este pacote) + as 7 skills. Requer `ZIHIN_API_KEY` exportada no ambiente.
 
 ## Capabilities
 
@@ -245,11 +301,13 @@ As capabilities disponiveis dependem do role da API Key, controlado server-side:
 
 | Role | Tools | Resources | Prompts |
 |------|-------|-----------|---------|
-| `admin` | Todas (88) | 19 | 3 |
-| `editor` | Leitura (48 — writes nao sao listadas) | 19 | 3 |
+| `owner` / `admin` | Todas (106) | 21 | 3 |
+| `editor` | Leitura (57 — writes nao sao listadas) | 21 | 3 |
 | `member` | Subset consumer (5) | - | - |
 
-Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources — 3 catalogos + 10 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
+Pelo [login de pessoa](#login-de-pessoa-sem-api-key), `owner`/`admin` veem 86 tools (`editor` e `member`, as mesmas da tabela) e os prompts caem para 2 (o `configure-webhook` fica de fora, porque depende de `create_trigger`). Empresa sem o motor de processos ve so `get_process_engine_status` entre as tools de processo: 93 tools para `owner`/`admin` com API Key, 75 pelo login, e 50 para `editor`.
+
+Contagens conferidas contra o servidor em 03/11/2026 (106 tools / 21 resources — 3 catalogos + 11 schemas + 7 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
 
 ### Resources disponiveis
 
@@ -258,8 +316,8 @@ Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources —
 | `zihin://agents` | Lista de agentes do tenant |
 | `zihin://models` | Catalogo de modelos LLM disponiveis |
 | `zihin://schema-templates` | Templates de schema para configuracao |
-| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
-| `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
+| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (11 tipos) |
+| `zihin://skills/{slug}` | Playbooks procedurais (7 skills — ver secao Skills acima) |
 
 ### Prompts disponiveis
 

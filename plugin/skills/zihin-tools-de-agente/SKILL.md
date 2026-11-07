@@ -5,6 +5,8 @@ description: Playbook para dar capacidades a um agente Zihin — tools de API ex
 
 # Tools de agente — API e MCP externo
 
+> **Login de pessoa (OAuth):** `create_secret`, `update_secret`, `create_mcp_server` e `update_mcp_server` não aparecem para quem entrou pelo login (criam credencial ou acesso persistente) — essas etapas são feitas no console da Zihin. Ver `zihin://skills/mcp`.
+
 Workflow universal: leia o contrato (`zihin://schemas/api_config`) → monte → `validate_schema_data` (dry-run) → `create_schema`. Depois confira com `list_agent_tools` que a tool aparece como `resolved`.
 
 ## api_config — chamar API externa

@@ -28,6 +28,7 @@ Para api_config com erro: `validate_agent_schemas` aponta o schema quebrado; lem
 
 ## 3. Execução específica
 
+`list_executions` — busca de execuções por `trace_id` (a correlação que a integração mandou em `metadata`), `session_id`, `agent_id`, `status`, `source` e período; é por aqui que uma investigação começa quando você não tem um `execution_id` em mãos.
 `get_execution_diagnostics` — trace da execução: modelo usado, iterações, tool calls com input/output, erros por passo.
 
 ### Turno terminou em TIMEOUT
@@ -52,7 +53,7 @@ O desfecho diz qual relógio disparou (`timeout_clock`): `turn` = prazo do turno
 
 ## 7. Voltar atrás
 
-Piorou depois de uma mudança? `list_agent_history` (timeline) → `compare_versions` (diff) → `rollback_version` (recurso específico) ou `rollback_snapshot` (agente inteiro pro estado de uma publicação).
+Piorou depois de uma mudança? `list_agent_history` (timeline) → `compare_versions` (diff) → `rollback_version` (recurso específico) ou `rollback_snapshot` (agente inteiro pro estado de uma publicação). No login de pessoa (OAuth) os dois rollbacks não aparecem (recriam triggers/servidores MCP) — restaurar é feito no console.
 
 ## Reproduzir com segurança
 

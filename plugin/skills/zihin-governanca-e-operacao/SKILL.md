@@ -5,6 +5,8 @@ description: Playbook de governança e operação do Zihin — teto de gasto (bu
 
 # Governança e operação
 
+> **Login de pessoa (OAuth):** `create_csp`, `update_csp`, `toggle_csp`, `delete_csp`, `create_approval_policy` e `update_approval_policy` não aparecem para quem entrou pelo login (criam credencial ou acesso persistente) — essas etapas são feitas no console da Zihin. Ver `zihin://skills/mcp`.
+
 ## Teto de gasto por agente (budget)
 
 Budget ≠ quota: budget é **teto de custo em USD por agente** e conta TODAS as chamadas LLM, **BYOK incluído**; quota é a franquia de tokens do plano (BYOK não consome).
@@ -47,7 +49,8 @@ Padrão de handoff, nesta ordem:
 1. `set_session_control` com `manual_handoff` ou `suspended`. Com `expires_at` (ISO 8601 com fuso, até 30 dias) a pausa é temporária: no prazo a sessão volta sozinha para `engaged`; sem ele, fica até alguém retomar. Sessão fora de `engaged` = novas mensagens fazem bypass do agente.
 2. `send_manual_message` — envia pelo MESMO canal outbound do agente (Twilio/Meta/webhook). Exige `control_mode != engaged`. Gravada com `author=human` — quando o agente retomar, NÃO imita o estilo do operador. **Envio único**: a mesma mensagem na mesma sessão em 60s é deduplicada (`idempotent_replay=true`); passe `idempotency_key` para controlar a janela — a mesma chave vale no REST (`Idempotency-Key`). Se receber `IDEMPOTENCY_IN_FLIGHT` ou `DELIVERY_OUTCOME_UNKNOWN`, confira a conversa antes de reenviar — NÃO troque a chave.
 3. Turno em andamento descontrolado (loop, resposta fora do alvo)? `cancel_agent_turn` aborta mid-LLM/mid-tool (em multi-agente, cascateia pros subagentes).
-4. Encerrou o atendimento humano: `set_session_control` de volta pra `engaged`.
+4. Conversa contaminada ou encerrada? `clear_session` limpa o histórico (IRREVERSÍVEL; recusa com `SESSION_BUSY` se há turno em voo; indisponível no transporte stdio local, que não tem a trava Redis) — a conversa continua existindo, vazia. `archive_session`/`unarchive_session` tiram/devolvem a conversa da lista ativa sem apagar nada.
+5. Encerrou o atendimento humano: `set_session_control` de volta pra `engaged`.
 
 ## Denylist de consumidores
 

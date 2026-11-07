@@ -5,6 +5,8 @@ description: Playbook de triggers do Zihin — webhook (WhatsApp/Slack/Teams/n8n
 
 # Triggers e canais
 
+> **Login de pessoa (OAuth):** `create_trigger`, `update_trigger` e `toggle_trigger` não aparecem para quem entrou pelo login (criam credencial ou acesso persistente) — essas etapas são feitas no console da Zihin. Ver `zihin://skills/mcp`.
+
 Contrato formal: `zihin://schemas/trigger_config` (granularidade de ENTIDADE — no `create_trigger` você envia só `agent_id`, `name`, `trigger_type` e `trigger_config`; `tenant_id`/ids são injetados pelo servidor). Tipos: `webhook`, `schedule`, `email`.
 
 `create_trigger`/`get_trigger`/`list_triggers` de webhook retornam um bloco **`call`** com a **URL chamável + qual header de auth** enviar (ver §Como chamar). ⚠️ NÃO retornam a API Key — a key é do tenant, gerada à parte; entregue a URL + a key ao usuário.

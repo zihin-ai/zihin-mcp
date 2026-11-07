@@ -2,8 +2,14 @@
 
 ## Nao publicado
 
+## 2.3.0 (a publicar — proxy respeita o ttlMs do catalogo; 7 skills; backend MCP 2.5.0)
+
+- **Keepalive respeita o `ttlMs` do catalogo (SEP-2549)**: o tick de `tools/list` passa de 30 s fixos para `max(30 s, ttlMs)` com jitter so positivo (0 a +10%, nunca antes do TTL; teto 15 min), ja a partir do TTL do discovery; com chamada em voo o tick rearma com o mesmo intervalo, e um tick em voo nao rearma depois de parar. Agendamento extraido para `src/keepalive.js`, com testes de relogio falso. Com o backend 2026.11.x anunciando 5 min, o proxy ocioso deixa de puxar ~100 KB a cada 30 s.
+- **Skills sincronizadas com a fonte** (`plugin/skills/ORIGEM.md` guarda o SHA): 7 skills (+`zihin-processos`), copias byte a byte de `server-llm/mcp-server/skills`. Manifestos e README com as contagens atuais (106 tools / 21 resources / 7 skills). A skill `zihin-mcp` descreve o formato novo de erro (`error: { code, message }`).
+
 - **Plugin Claude Code com versao fixa do proxy**: `plugin/.mcp.json` passa a rodar `npx -y @zihin/mcp-server@2.2.2` em vez de resolver o `latest` a cada boot. E requisito do diretorio da Anthropic (launcher sem versao exata bloqueia a submissao). Consequencia: o plugin so recebe um proxy novo quando o plugin e atualizado; o pin entra na lista de bumps de cada release e e conferido pelo `scripts/registry-publish.sh` e por `test/plugin-manifest.test.js`. O `mcp.json` da raiz (padrao Open Plugins) continua sem pin.
 - **`plugin/README.md`**: exigido pelo mesmo diretorio; declara o que o plugin executa e para onde envia dados.
+- **Login de pessoa (sem API Key) documentado**: README e `plugin/README.md` explicam como conectar Claude Code (comando gerado no console, com `--client-id` por pessoa x empresa), Codex e Cursor direto em `https://llm.zihin.ai/mcp/t/{tenant_id}`, e que o proxy e o plugin seguem no modo API Key. `ZIHIN_MCP_URL` aceita o servidor da empresa com a API Key da mesma empresa. Skills ressincronizadas com a fonte em `71e45df1` (notas do login de pessoa).
 
 ## 2.2.2 (2026-10-04)
 

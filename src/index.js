@@ -17,6 +17,7 @@ import { Server } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { writeSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { createKeepalive } from './keepalive.js';
 
 // Versao unica: a do package.json. Constante hardcoded driftava a cada release
 // (a 2.2.1 saiu com o handshake se apresentando como 2.2.0).
@@ -24,7 +25,7 @@ const VERSION = createRequire(import.meta.url)('../package.json').version;
 const DEFAULT_MCP_URL = 'https://llm.zihin.ai/mcp';
 const VALID_KEY_PREFIXES = ['zhn_live_', 'zhn_test_', 'zhn_dev_'];
 
-const KEEPALIVE_INTERVAL_MS = 30_000;
+// Keepalive: intervalo = max(30 s, ttlMs anunciado pelo server), jitter só positivo — ver src/keepalive.js.
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -88,7 +89,6 @@ export async function startProxy() {
   let remoteResources = [];
   let remotePrompts = [];
   let reconnecting = false;
-  let keepaliveTimer = null;
   let inFlightRemoteCalls = 0; // ver a guarda no keepalive
 
   /** Atualiza o cache de tools mantendo a assinatura de conteúdo em sincronia. */
@@ -191,8 +191,8 @@ export async function startProxy() {
     // Discovery dinâmico via list_changed: configurado em ClientOptions
     // (listChanged) — o SDK v2 registra os handlers e refaz o list sozinho.
 
-    // Iniciar keepalive
-    startKeepalive();
+    // Iniciar keepalive já com o TTL do discovery: o catálogo acabou de ser lido e está fresco por ttlMs.
+    startKeepalive(toolsResult.status === 'fulfilled' ? toolsResult.value.ttlMs : undefined);
   }
 
   // --- Identificação de tenant (Fix 2) ---
@@ -240,56 +240,33 @@ export async function startProxy() {
 
   // --- Smart keepalive (Fix 4) ---
 
-  function startKeepalive() {
-    stopKeepalive();
-    keepaliveTimer = setInterval(async () => {
-      // Com o teto de 300s, um chat_with_agent pode ficar 4 minutos em voo —
-      // dez ticks de keepalive por cima dele. Se UM tick falhar (502 de LB,
-      // blip de rede), o reconnect() fecha o client e o close() ABORTA o
-      // request em voo: no dialeto moderno esse abort é cancelamento de
-      // verdade, então a sonda de saúde mataria o turno do usuário. Um
-      // request em voo já é prova de vida melhor do que a sonda, e se a
-      // conexão realmente caiu é ele quem falha primeiro — aí o withRetry
-      // reconecta. Detecção de mudança de tools só atrasa o que durar a
-      // chamada.
-      if (inFlightRemoteCalls > 0) return;
-      try {
-        // Discovery contínuo: detecta mudança nas tools + valida auth.
-        // Com o server stateless este é o ÚNICO detector de mudança — não há
-        // mais GET stream para entregar list_changed —, então o diff é por
-        // CONTEÚDO: comparar length não detecta troca de tool com contagem
-        // igual (ex.: deploy que renomeia uma tool).
-        //
-        // cacheMode 'bypass' por dois motivos (revisão 02/08):
-        // 1. Resiliência: 'use' (default) serviria do cache quando o server
-        //    passar a emitir ttlMs (SEP-2549) — keepalive cego, sem validar
-        //    auth nem detectar queda.
-        // 2. Performance: cada write no cache bumpa o stamp e força o 1º
-        //    callTool seguinte a re-derivar o índice de output-validators
-        //    (recompilação AJV de até ~110ms); bypass não escreve.
-        const result = await remoteClient.listTools(undefined, { cacheMode: 'bypass' });
-        const signature = JSON.stringify(result.tools);
-        if (signature !== remoteToolsSignature) {
-          log(`Keepalive: tools atualizadas (${remoteTools.length} → ${result.tools.length})`);
-          setRemoteTools(result.tools);
-          // Evento raro: sincroniza o cache/índice interno do SDK com a
-          // lista nova (validação de outputSchema do callTool lê de lá).
-          remoteClient.listTools(undefined, { cacheMode: 'refresh' }).catch(() => {});
-        }
-      } catch (error) {
-        failIfFatal(error);
-        log('Keepalive falhou — reconectando...');
-        reconnect();
+  // Com o teto de 300s, um chat_with_agent pode ficar 4 minutos em voo. Se a sonda falhasse no meio (502 de LB,
+  // blip de rede), o reconnect() fecharia o client e ABORTARIA o turno do usuário — um request em voo já é prova
+  // de vida melhor do que a sonda, então o tick só rearma. Discovery contínuo: com o server stateless este é o
+  // ÚNICO detector de mudança de tools, então o diff é por CONTEÚDO. cacheMode 'bypass' (revisão 02/08): 'use'
+  // serviria do cache (keepalive cego, sem validar auth nem detectar queda) e cada write no cache força
+  // recompilar os validadores de outputSchema no callTool seguinte.
+  const keepalive = createKeepalive({
+    isBusy: () => inFlightRemoteCalls > 0,
+    probe: async () => {
+      const result = await remoteClient.listTools(undefined, { cacheMode: 'bypass' });
+      const signature = JSON.stringify(result.tools);
+      if (signature !== remoteToolsSignature) {
+        log(`Keepalive: tools atualizadas (${remoteTools.length} → ${result.tools.length})`);
+        setRemoteTools(result.tools);
+        // Evento raro: sincroniza o cache/índice interno do SDK com a lista nova.
+        remoteClient.listTools(undefined, { cacheMode: 'refresh' }).catch(() => {});
       }
-    }, KEEPALIVE_INTERVAL_MS);
-  }
-
-  function stopKeepalive() {
-    if (keepaliveTimer) {
-      clearInterval(keepaliveTimer);
-      keepaliveTimer = null;
-    }
-  }
+      return result;
+    },
+    onFailure: (error) => {
+      failIfFatal(error);
+      log('Keepalive falhou — reconectando...');
+      reconnect();
+    },
+  });
+  const startKeepalive = (ttlMs) => keepalive.start(ttlMs);
+  const stopKeepalive = () => keepalive.stop();
 
   // --- Auto-reconnect ---
 
