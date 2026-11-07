@@ -9,6 +9,7 @@
 
 - **Plugin Claude Code com versao fixa do proxy**: `plugin/.mcp.json` passa a rodar `npx -y @zihin/mcp-server@2.2.2` em vez de resolver o `latest` a cada boot. E requisito do diretorio da Anthropic (launcher sem versao exata bloqueia a submissao). Consequencia: o plugin so recebe um proxy novo quando o plugin e atualizado; o pin entra na lista de bumps de cada release e e conferido pelo `scripts/registry-publish.sh` e por `test/plugin-manifest.test.js`. O `mcp.json` da raiz (padrao Open Plugins) continua sem pin.
 - **`plugin/README.md`**: exigido pelo mesmo diretorio; declara o que o plugin executa e para onde envia dados.
+- **Login de pessoa (sem API Key) documentado**: README e `plugin/README.md` explicam como conectar Claude Code (comando gerado no console, com `--client-id` por pessoa x empresa), Codex e Cursor direto em `https://llm.zihin.ai/mcp/t/{tenant_id}`, e que o proxy e o plugin seguem no modo API Key. `ZIHIN_MCP_URL` aceita o servidor da empresa com a API Key da mesma empresa. Skills ressincronizadas com a fonte em `71e45df1` (notas do login de pessoa).
 
 ## 2.2.2 (2026-10-04)
 
