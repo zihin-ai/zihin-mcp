@@ -25,7 +25,7 @@ Publicada **não** é liberada: os agentes só abrem processos liberados para a 
 7. **Intervenha** (admin/owner): `cancel_process_instance` ou `resolve_process_incident` (`retry`, `abandon`, `substitute_output`). As duas devolvem `command_id` com status `received` = RECEBIDO, não concluído: confirme o desfecho com `get_process_command` (`applied` ou `rejected` + `reason`) em vez de repetir a mutação. Aprovação e pedido de informação NÃO se resolvem por aqui — são de quem a política designa. Antes de resolver, confira em `get_process_instance` o `open_tasks[].allowed_resolutions`: `substitute_output` só existe em etapa de agente, e `retry` com `attempts` = `max_attempts` re-bloqueia na hora. `closing_blocked: true` = processo retido encerrando (efeito incerto ou worker fora): não se resolve por aqui — fale com a Zihin.
 8. **Aposente**: `retire_process_definition` (todas as versões da key).
 
-Publicar, liberar e intervir exigem API key criada por um admin/owner **ainda ativo** na empresa.
+Publicar, liberar e intervir exigem API key criada por um admin/owner **ainda ativo** na empresa. No login de pessoa (OAuth) vale o papel da pessoa, e `publish_process_definition`/`enable_process` não aparecem — publicar e ligar são feitos no console.
 
 ## Receita do worker (etapa `compute`)
 

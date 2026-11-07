@@ -53,7 +53,7 @@ O desfecho diz qual relógio disparou (`timeout_clock`): `turn` = prazo do turno
 
 ## 7. Voltar atrás
 
-Piorou depois de uma mudança? `list_agent_history` (timeline) → `compare_versions` (diff) → `rollback_version` (recurso específico) ou `rollback_snapshot` (agente inteiro pro estado de uma publicação).
+Piorou depois de uma mudança? `list_agent_history` (timeline) → `compare_versions` (diff) → `rollback_version` (recurso específico) ou `rollback_snapshot` (agente inteiro pro estado de uma publicação). No login de pessoa (OAuth) os dois rollbacks não aparecem (recriam triggers/servidores MCP) — restaurar é feito no console.
 
 ## Reproduzir com segurança
 

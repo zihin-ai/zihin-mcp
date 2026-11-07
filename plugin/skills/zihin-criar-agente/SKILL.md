@@ -82,3 +82,4 @@ APIs externas ou MCP servers → leia `zihin://skills/tools-de-agente`.
 - Iterar: `update_agent`/`update_schema` + `publish_agent` de novo. Histórico/rollback: `list_versions`, `list_snapshots`, `rollback_version`.
 - Editar schema de agente em produção (ou com mais de um editor): `get_schema` → guarde a `version` → `update_schema` com `base_version` = essa versão e um `changelog` dizendo o porquê. Se outra pessoa gravou no meio, volta `CONFLICT` com a versão atual e **nada é gravado** — releia, veja a diferença com `compare_versions` e reaplique. `schema_data` substitui o documento inteiro.
 - Clonar como base: `clone_agent` (clone nasce em draft; triggers clonados desabilitados).
+- Login de pessoa (OAuth): `rollback_version`, `rollback_snapshot` e `clone_agent` não aparecem (recriam triggers/servidores MCP) — use o console para restaurar ou clonar.
