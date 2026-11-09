@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.3
 
 - Use English documentation, bundled skills and client diagnostics.
 - Limit package contents to runtime files, user documentation and required metadata.
