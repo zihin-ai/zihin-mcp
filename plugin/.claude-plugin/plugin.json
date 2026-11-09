@@ -1,6 +1,6 @@
 {
   "name": "zihin",
-  "description": "Zihin Agent Builder — gerencie agentes de IA da plataforma Zihin direto do Claude Code: MCP server com 88 tools (agentes, schemas, triggers, budget, aprovações, observabilidade) + 6 skills especialistas com os playbooks e gotchas da plataforma.",
+  "description": "Connect Claude Code to Zihin.ai to work with hosted AI agents, tools, triggers and processes. Includes platform skills.",
   "version": "2.2.2",
   "author": {
     "name": "Zihin",

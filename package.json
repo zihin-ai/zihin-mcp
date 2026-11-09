@@ -2,23 +2,28 @@
   "name": "@zihin/mcp-server",
   "version": "2.2.2",
   "mcpName": "ai.zihin/mcp-server",
-  "description": "Zihin MCP Server — stdio-to-HTTP proxy para Claude Desktop, Cursor, Claude Code e outros clientes MCP",
+  "description": "Zihin MCP server: a stdio-to-HTTP proxy for Claude Desktop, Cursor, Claude Code and other MCP clients.",
   "type": "module",
   "bin": {
     "zihin-mcp": "bin/zihin-mcp.js"
   },
   "scripts": {
     "test": "node --test",
-    "sync-skills": "node scripts/sync-skills.mjs"
+    "check:publication": "node scripts/check-publication.mjs",
+    "prepack": "npm run check:publication"
   },
   "main": "src/index.js",
   "engines": {
     "node": ">=20"
   },
   "files": [
-    "bin/",
-    "src/",
-    "plugin/",
+    "bin/zihin-mcp.js",
+    "src/index.js",
+    "src/install-skills.js",
+    "plugin/.claude-plugin/plugin.json",
+    "plugin/.mcp.json",
+    "plugin/README.md",
+    "plugin/skills/*/SKILL.md",
     "README.md",
     "LICENSE"
   ],

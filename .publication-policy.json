@@ -1,0 +1,22 @@
+{
+  "allow": [
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "bin/zihin-mcp.js",
+    "src/index.js",
+    "src/install-skills.js",
+    "plugin/.claude-plugin/plugin.json",
+    "plugin/.mcp.json",
+    "plugin/README.md",
+    "plugin/skills/*/SKILL.md"
+  ],
+  "required": [
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "bin/zihin-mcp.js",
+    "src/index.js",
+    "src/install-skills.js"
+  ]
+}

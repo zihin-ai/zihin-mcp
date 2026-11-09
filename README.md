@@ -1,63 +1,21 @@
-# @zihin/mcp-server
+# Zihin MCP server
 
-**Converse com seus agentes de IA da [Zihin.ai](https://www.zihin.ai) e gerencie-os direto do seu IDE ou assistente** — Claude, Cursor, VS Code, Codex, Gemini CLI ou qualquer cliente MCP.
+Connect MCP clients to the [Zihin.ai](https://zihin.ai) agent platform. This package
+proxies stdio requests to the hosted MCP endpoint and includes platform skills.
+Requires Node.js 20 or later and a Zihin API key.
 
-[![npm version](https://img.shields.io/npm/v/@zihin/mcp-server?style=flat-square)](https://www.npmjs.com/package/@zihin/mcp-server)
-[![npm downloads](https://img.shields.io/npm/dm/@zihin/mcp-server?style=flat-square)](https://www.npmjs.com/package/@zihin/mcp-server)
-[![MCP Registry](https://img.shields.io/badge/MCP_Registry-ai.zihin%2Fmcp--server-blue?style=flat-square)](https://registry.modelcontextprotocol.io/v0/servers?search=ai.zihin/mcp-server)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![smithery badge](https://smithery.ai/badge/zihin/mcp)](https://smithery.ai/servers/zihin/mcp)
-[![zihin-mcp MCP server](https://glama.ai/mcp/servers/zihin-ai/zihin-mcp/badges/score.svg)](https://glama.ai/mcp/servers/zihin-ai/zihin-mcp)
+## Quick start
 
-> Se este projeto for útil para você, uma ⭐ ajuda outras pessoas a encontrá-lo.
-
-Proxy MCP stdio-to-HTTP para a plataforma Zihin.ai. Conecta clientes MCP ao Zihin MCP Server via HTTP.
-
-```
-Cliente MCP <-stdio-> [@zihin/mcp-server] <-HTTP-> https://llm.zihin.ai/mcp
+```sh
+ZIHIN_API_KEY=YOUR_ZIHIN_API_KEY npx -y @zihin/mcp-server
 ```
 
-### Em 30 segundos
+Obtain your key from the Zihin console. Store it in your client's secret configuration.
+Use a key with the permissions needed for your work. Never commit it to a repository.
 
-1. Gere uma API Key no console da Zihin.
-2. Registre o servidor no seu cliente — no Claude Code, por exemplo:
-   ```bash
-   claude mcp add zihin -e ZIHIN_API_KEY=zhn_live_xxx -- npx -y @zihin/mcp-server
-   ```
-   Claude Desktop, Cursor (1 clique), VS Code (1 clique), Windsurf, Gemini CLI e Codex: ver [Configuracao](#configuracao).
-3. Peça ao assistente: *"liste meus agentes Zihin"* ou *"converse com o agente X"*.
+## Client configuration
 
-### O que você pode fazer
-
-- **Conversar com agentes publicados** (`chat_with_agent`, com continuidade de sessão).
-- **Criar e configurar agentes**: persona, tools de API externa, MCP servers externos e publicação — com o prompt guiado `setup-agent`.
-- **Conectar canais e automações**: triggers de webhook (WhatsApp, Slack, Teams, n8n), agendados e por e-mail.
-- **Governar**: teto de gasto por agente, políticas de segurança e aprovação humana antes de ações sensíveis.
-- **Diagnosticar**: métricas por agente, traces de execução e saúde do tenant.
-
-Até 88 tools para uma key `admin` (ver [Capabilities](#capabilities)); o que cada key enxerga depende do role. Documentação completa: [docs.zihin.ai](https://docs.zihin.ai) · Site: [www.zihin.ai](https://www.zihin.ai)
-
-## Inicio rapido
-
-macOS / Linux:
-
-```bash
-ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server
-```
-
-Windows (PowerShell):
-
-```powershell
-$env:ZIHIN_API_KEY="zhn_live_xxx"; npx @zihin/mcp-server
-```
-
-> Na pratica, a maioria dos clientes MCP (Claude Desktop, Cursor, etc.) define a variavel automaticamente via bloco `"env"` na configuracao — nao e necessario definir manualmente no shell.
-
-## Configuracao
-
-### Claude Desktop
-
-Adicione ao `claude_desktop_config.json`:
+Add this entry to your MCP client's configuration:
 
 ```json
 {
@@ -65,273 +23,62 @@ Adicione ao `claude_desktop_config.json`:
     "zihin": {
       "command": "npx",
       "args": ["-y", "@zihin/mcp-server"],
-      "env": {
-        "ZIHIN_API_KEY": "zhn_live_xxx"
-      }
+      "env": { "ZIHIN_API_KEY": "YOUR_ZIHIN_API_KEY" }
     }
   }
 }
 ```
 
-### Claude Code
+Clients with Streamable HTTP support can connect directly to
+`https://llm.zihin.ai/mcp`, using the `X-Api-Key` header.
+Available tools and resources depend on your account and key permissions.
 
-Adicione ao `.mcp.json` do projeto:
+## Claude Code plugin
 
-```json
-{
-  "mcpServers": {
-    "zihin": {
-      "command": "npx",
-      "args": ["-y", "@zihin/mcp-server"],
-      "env": {
-        "ZIHIN_API_KEY": "zhn_live_xxx"
-      }
-    }
-  }
-}
+```text
+/plugin marketplace add zihin-ai/zihin-mcp
+/plugin install zihin@zihin
 ```
 
-Ou via CLI (a variavel `ZIHIN_API_KEY` deve estar definida no shell):
+Set `ZIHIN_API_KEY` in the environment used to start Claude Code. Update the plugin
+to receive changes to its pinned proxy version and bundled skills.
 
-```bash
-claude mcp add zihin -e ZIHIN_API_KEY=zhn_live_xxx -- npx -y @zihin/mcp-server
+## Install skills
+
+```sh
+npx -y @zihin/mcp-server install-skills --client all --bundled
 ```
 
-### Cursor
+Supported clients are `claude`, `cursor`, `windsurf` and `codex`. Use `--dir` to choose
+the project directory, or `--global` for Claude's user-level skills. Without `--bundled`,
+the installer fetches skills from the server using your API key and falls back to bundled
+skills if the server cannot supply them. Existing skill identifiers are retained for compatibility.
 
-Instalacao em 1 clique (cole na barra de endereco do navegador ou rode `open '<link>'`):
+## Configuration
 
-```
-cursor://anysphere.cursor-deeplink/mcp/install?name=zihin&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkB6aWhpbi9tY3Atc2VydmVyIl0sImVudiI6eyJaSUhJTl9BUElfS0VZIjoiemhuX2xpdmVfeHh4In19
-```
+| Variable | Purpose |
+| --- | --- |
+| `ZIHIN_API_KEY` | Required API key |
+| `ZIHIN_MCP_URL` | Optional trusted MCP endpoint; defaults to `https://llm.zihin.ai/mcp` |
+| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Tool-call timeout in milliseconds; default 300000, range 1000–1800000 |
 
-Troque `zhn_live_xxx` pela sua key nas configuracoes do MCP depois de instalar. Ou adicione ao `.cursor/mcp.json`:
+The proxy sends your key to the configured endpoint. Change the endpoint only for a
+trusted deployment. Diagnostics go to stderr; stdout carries MCP messages.
+Agent execution can consume credits and trigger external actions. Inspect returned
+errors and warnings before treating an operation as complete.
 
-```json
-{
-  "mcpServers": {
-    "zihin": {
-      "command": "npx",
-      "args": ["-y", "@zihin/mcp-server"],
-      "env": {
-        "ZIHIN_API_KEY": "zhn_live_xxx"
-      }
-    }
-  }
-}
-```
+## Development
 
-### VS Code (Copilot)
-
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Zihin_MCP-0098FF?style=flat-square&logo=githubcopilot&logoColor=white)](https://vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22zihin%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40zihin%2Fmcp-server%22%5D%2C%22env%22%3A%7B%22ZIHIN_API_KEY%22%3A%22zhn_live_xxx%22%7D%7D)
-
-O botao abre o VS Code com a config pronta (troque `zhn_live_xxx` pela sua key). Manual: comando
-`MCP: Add Server` ou `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "zihin": {
-      "command": "npx",
-      "args": ["-y", "@zihin/mcp-server"],
-      "env": { "ZIHIN_API_KEY": "zhn_live_xxx" }
-    }
-  }
-}
+```sh
+npm ci
+npm test
+npm run check:publication
 ```
 
-### Windsurf
-
-Adicione ao `~/.windsurf/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "zihin": {
-      "command": "npx",
-      "args": ["-y", "@zihin/mcp-server"],
-      "env": {
-        "ZIHIN_API_KEY": "zhn_live_xxx"
-      }
-    }
-  }
-}
-```
-
-### Gemini CLI
-
-```bash
-gemini extensions install https://github.com/zihin-ai/gemini-cli-zihin
-```
-
-A extensao pede a API Key na instalacao (fica no keychain) e instala o MCP + contexto. Config manual: ver "Outros clientes MCP".
-
-### Codex (OpenAI)
-
-Adicione ao `~/.codex/config.toml` (ou `.codex/config.toml` no projeto):
-
-```toml
-[mcp_servers.zihin]
-command = "npx"
-args = ["-y", "@zihin/mcp-server"]
-env_vars = ["ZIHIN_API_KEY"]
-```
-
-A variavel `ZIHIN_API_KEY` deve estar definida no seu shell. Alternativamente, para definir inline:
-
-```toml
-[mcp_servers.zihin]
-command = "npx"
-args = ["-y", "@zihin/mcp-server"]
-
-[mcp_servers.zihin.env]
-ZIHIN_API_KEY = "zhn_live_xxx"
-```
-
-### Outros clientes MCP
-
-Qualquer cliente que suporte o protocolo MCP via stdio pode usar este pacote. O padrao de configuracao e o mesmo: executar `npx -y @zihin/mcp-server` com a variavel `ZIHIN_API_KEY` definida.
-
-## Variaveis de ambiente
-
-| Variavel | Obrigatoria | Descricao |
-|----------|-------------|-----------|
-| `ZIHIN_API_KEY` | Sim | API Key do tenant (formato `zhn_live_*`, `zhn_test_*` ou `zhn_dev_*`) |
-| `ZIHIN_MCP_URL` | Nao | URL do MCP Server (default: `https://llm.zihin.ai/mcp`) |
-| `ZIHIN_MCP_CALL_TIMEOUT_MS` | Nao | Teto de tempo de um `tools/call`, em milissegundos (default: `300000`, 5 min; faixa aceita: `1000`–`1800000`). O server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor) — o default deixa o server responder o erro diagnosticavel antes de o proxy cortar. As skills do backend 2026.10.5 informam teto operacional de 180s para os canais externos, incluindo `chat_with_agent`; esse valor depende da configuracao do servidor. Acima de ~300s o `fetch` do Node (undici) pode cortar antes, com timeout proprio de headers/body. |
-
-## Como funciona
-
-O pacote atua como um **proxy transparente** entre o cliente MCP local (via stdio) e o Zihin MCP Server (via HTTP):
-
-- Todas as tools, resources e prompts sao descobertos automaticamente do server
-- Auth, RBAC e tenant isolation sao enforced server-side via API Key
-- O role (admin/editor/member) e determinado pela API Key
-
-## Skills — deixe seu IDE especialista no Zihin
-
-O servidor expoe 6 skills (playbooks procedurais: criar agente, tools, triggers, diagnostico, governanca) como resources `zihin://skills/*`, para os roles que enxergam resources (ver Capabilities). Nada precisa ser instalado, mas o corpo da skill nao e entregue sozinho: o client (ou o modelo) precisa consulta-lo com `resources/read`.
-
-Para instalar tambem no formato NATIVO do seu client (ativacao automatica por contexto):
-
-```bash
-# Claude Code (Agent Skills em .claude/skills/)
-ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server install-skills --client claude
-
-# Cursor (.cursor/rules/*.mdc) | Windsurf (.windsurf/rules/) | Codex (AGENTS.md + .zihin/skills/)
-ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server install-skills --client cursor
-ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server install-skills --client all
-
-# Offline (usa as skills empacotadas no npm)
-npx @zihin/mcp-server install-skills --client claude --bundled
-```
-
-Opcoes: `--client claude|cursor|windsurf|codex|all` · `--dir <raiz-do-projeto>` · `--global` (so claude, instala em `~/.claude/skills`) · `--bundled` (offline).
-
-As skills sao buscadas do server vivo (sempre atualizadas). Se a busca falhar (rede, server fora do ar, key recusada) ou voltar vazia, o comando instala as copias empacotadas no npm — as mesmas do `--bundled`, congeladas na data da release. Na falha ele imprime um aviso; nos dois casos a saida informa a fonte usada (`fonte: server` ou `fonte: bundled`). Sem `ZIHIN_API_KEY` e sem `--bundled` nao ha fallback: o comando encerra com erro. No Codex, um bloco gerenciado e inserido no `AGENTS.md` (entre `<!-- zihin-skills:start/end -->`, idempotente) com o indice das skills em `.zihin/skills/`.
-
-### Plugin Claude Code (MCP + skills em um comando)
-
-```bash
-claude plugin marketplace add zihin-ai/zihin-mcp
-claude plugin install zihin@zihin
-```
-
-O plugin instala o MCP server (via este pacote) + as 6 skills. Requer `ZIHIN_API_KEY` exportada no ambiente.
-
-## Capabilities
-
-As capabilities disponiveis dependem do role da API Key, controlado server-side:
-
-| Role | Tools | Resources | Prompts |
-|------|-------|-----------|---------|
-| `admin` | Todas (88) | 19 | 3 |
-| `editor` | Leitura (48 — writes nao sao listadas) | 19 | 3 |
-| `member` | Subset consumer (5) | - | - |
-
-Contagens verificadas contra producao em 04/10/2026 (88 tools / 19 resources — 3 catalogos + 10 schemas + 6 skills / 3 prompts). O numero exato pode variar conforme o server evolui.
-
-### Resources disponiveis
-
-| URI | Descricao |
-|-----|-----------|
-| `zihin://agents` | Lista de agentes do tenant |
-| `zihin://models` | Catalogo de modelos LLM disponiveis |
-| `zihin://schema-templates` | Templates de schema para configuracao |
-| `zihin://schemas/{tipo}` | Contrato formal (JSON Schema) de cada payload — o mesmo que o server valida (10 tipos) |
-| `zihin://skills/{slug}` | Playbooks procedurais (6 skills — ver secao Skills acima) |
-
-### Prompts disponiveis
-
-| Nome | Descricao |
-|------|-----------|
-| `setup-agent` | Cria um agente completo (agente + persona + tools + publicacao) |
-| `add-tool` | Adiciona uma tool a um agente existente |
-| `configure-webhook` | Configura trigger webhook para um agente |
-
-## Testes
-
-87 testes: unitarios offline (classificacao de erros, teto de timeout, install-skills, verificador do registry, coerencia dos manifests do plugin) + integracao real contra o server de producao. Sem `ZIHIN_API_KEY`, so os offline rodam; com a key, a suite completa:
-
-```bash
-ZIHIN_API_KEY=zhn_live_xxx npm test
-```
-
-Cobertura: validacao de API Key, tools (incluindo `chat_with_agent` com session tracking, continuidade e o contrato de saida — `execution_id`, `cancelled`, `tools_used`/`tool_calls`), resources, prompts, protocolo MCP (identidade espelhada + instructions), classificacao de erros (formas SDK v1 e v2) e o teto de `tools/call` conferido contra o deadline do server.
-
-> A suite de integracao faz DUAS chamadas reais a `chat_with_agent` (abertura da sessao e continuidade) — dois turnos de agente, com custo real de LLM no tenant. No CI ela roda apenas no workflow da tag `v*`.
-
-## Troubleshooting
-
-### "ERRO: ZIHIN_API_KEY nao definida"
-
-Defina a variavel de ambiente antes de rodar:
-
-```bash
-# macOS / Linux
-ZIHIN_API_KEY=zhn_live_xxx npx @zihin/mcp-server
-
-# Windows (PowerShell)
-$env:ZIHIN_API_KEY="zhn_live_xxx"; npx @zihin/mcp-server
-```
-
-### "Falha ao conectar ao server"
-
-- Verifique sua conexao com a internet
-- Verifique se a API Key e valida e esta ativa
-- Se usar URL customizada, verifique `ZIHIN_MCP_URL`
-
-### "ERRO FATAL: API Key invalida ou revogada"
-
-A API Key foi revogada ou desativada no painel Zihin. Gere uma nova key e atualize a configuracao do cliente MCP. Reinicie o processo apos a troca.
-
-### "A tool X passou do teto de 300s do proxy e foi abortada"
-
-O proxy espera ate 5 minutos por um `tools/call`. Quando essa mensagem aparece, o limite atingido foi o **do proxy**, nao o do server — o trabalho foi cancelado no servidor (no dialeto 2026-07-28 o abort do request e o sinal de cancelamento), entao nao ha execucao orfa queimando token.
-
-- Turno de agente legitimamente longo: suba o teto com `ZIHIN_MCP_CALL_TIMEOUT_MS` (em milissegundos, faixa `1000`–`1800000`). Acima de ~300s o proprio `fetch` do Node pode cortar antes.
-- Quem estourou primeiro foi o **server** (deadline por canal: defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor): a mensagem que chega e outra, um erro `TURN_TIMEOUT` com `execution_id` e `session_id` — leve esses dois identificadores para o suporte, sao a correlacao com a execucao no servidor.
-- Cliente MCP tem timeout proprio, independente deste: se o host desistir antes, ele mostra o erro dele.
-
-### Tools nao aparecem no cliente
-
-- Reinicie o cliente MCP apos alterar a configuracao
-- Claude Desktop: verifique logs em `~/Library/Logs/Claude/mcp*.log` (macOS) ou `%APPDATA%\Claude\logs\mcp*.log` (Windows)
-
-## Limitacoes
-
-- **Turno longo tem teto**: `tools/call` espera no maximo 5 min no proxy (configuravel — ver `ZIHIN_MCP_CALL_TIMEOUT_MS`), e o server tem deadline proprio por canal (defaults de chat 150s, builder 180s e demais canais 240s, sujeitos ao teto operacional do servidor). Turno que passa disso e cancelado, nao enfileirado.
-- **Streaming**: A tool `chat_with_agent` retorna a resposta completa de uma vez (sincrono). O protocolo MCP define que tools retornam um `CallToolResult` completo — nao ha suporte a streaming progressivo. Para feedback em tempo real durante execucao do agente, use o endpoint REST SSE (`POST /api/v2/agents/:agent_id/stream`).
-
-## Requisitos
-
-- Node.js >= 20
-- Compativel com macOS, Linux e Windows
-
-## Licenca
-
-MIT
-
----
-
-Feito pela [Zihin.ai](https://www.zihin.ai). Se este projeto for útil, uma ⭐ ajuda outras pessoas a encontrá-lo.
+Tests run offline without `ZIHIN_API_KEY`. Live integration tests require a test account
+and key and can execute agents. `REQUIRE_INTEGRATION=1` makes a missing key an error.
+The publication check rejects unexpected package files and known language regressions;
+release review must also check all public text and exact artifact contents.
+
+[Documentation](https://docs.zihin.ai/integrations/mcp-server) ·
+[Security policy](SECURITY.md) · [License](LICENSE)
