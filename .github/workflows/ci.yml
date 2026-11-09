@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    name: Testes
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,10 +22,8 @@ jobs:
 
       - run: npm ci
 
-      # Sem ZIHIN_API_KEY de propósito: a suíte de integração faz duas
-      # chamadas reais a chat_with_agent (custo de LLM no tenant) — rodar isso a
-      # cada push/PR queima token sem necessidade. Os testes de integração
-      # rodam no gate LOCAL antes do npm publish e no workflow da tag
-      # (publish.yml, REQUIRE_INTEGRATION=1).
-      - name: Testes (offline)
+      - name: Offline tests
         run: npm test
+
+      - name: Check publication contents
+        run: npm run check:publication

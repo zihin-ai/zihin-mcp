@@ -1,238 +1,163 @@
-/**
- * Testes da classificação de erros do proxy (Fase 0 da issue #6).
- *
- * Sem rede: valida a semântica dos classificadores contra as formas de erro
- * reais dos dois SDKs — v1 (atual) e v2 (Fase 1) — para que a migração de
- * SDK não exija reescrever esta lógica.
- *
- * Formas cobertas:
- *   - SDK v1 StreamableHTTPError: error.code = status HTTP numérico
- *   - SDK v2 SdkHttpError:        error.data.status = status HTTP;
- *                                 error.code = string ('CONNECTION_CLOSED', ...)
- *   - McpError / ProtocolError:   error.code = JSON-RPC numérico (-32xxx)
- *   - Rede (undici):              error.code ou error.cause.code
- */
-
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-
-import {
-  isAuthError,
-  isConnectionError,
-  isInputRequiredError,
-  isProtocolVersionError,
-  isTimeoutError,
-  resolveCallTimeoutMs,
-} from '../src/index.js';
-
-/** Erro sintético com propriedades arbitrárias. */
+import { isAuthError, isConnectionError, isInputRequiredError, isProtocolVersionError, isTimeoutError, resolveCallTimeoutMs, } from '../src/index.js';
 function err(message, props = {}) {
-  return Object.assign(new Error(message), props);
+    return Object.assign(new Error(message), props);
 }
-
 describe('isAuthError', () => {
-  it('detecta 401/403 pelo code numérico (SDK v1 StreamableHTTPError)', () => {
-    assert.ok(isAuthError(err('Error POSTing to endpoint: {"error":"unauthorized"}', { code: 401 })));
-    assert.ok(isAuthError(err('Forbidden', { code: 403 })));
-  });
-
-  it('detecta 401/403 por data.status (SDK v2 SdkHttpError)', () => {
-    assert.ok(isAuthError(err('HTTP error', { data: { status: 401 } })));
-    assert.ok(isAuthError(err('HTTP error', { data: { status: 403 } })));
-  });
-
-  it('não classifica outros status HTTP como auth', () => {
-    assert.ok(!isAuthError(err('Not found', { code: 404 })));
-    assert.ok(!isAuthError(err('Server error', { code: 500 })));
-    assert.ok(!isAuthError(err('HTTP error', { data: { status: 429 } })));
-  });
-
-  it('fallback por mensagem só para unauthorized/forbidden sem código', () => {
-    assert.ok(isAuthError(err('Request failed: Unauthorized')));
-    assert.ok(isAuthError(err('403 Forbidden at gateway')));
-  });
-
-  it('REGRESSÃO: erro de tool remota mencionando API Key NÃO é auth fatal', () => {
-    // O classificador antigo casava 'api key' na mensagem: um erro de tool
-    // de tenant como este derrubava o proxy inteiro com exit(1).
-    assert.ok(!isAuthError(err('Tool failed: configure a API Key do tenant no painel')));
-    assert.ok(!isAuthError(err('invalid api key format in tool arguments')));
-  });
-
-  it('sobrevive a erro nulo/vazio/sem message', () => {
-    assert.ok(!isAuthError(null));
-    assert.ok(!isAuthError(undefined));
-    assert.ok(!isAuthError({}));
-  });
-
-  it('code string "401" NÃO classifica (decisão: código é numérico; fallback de mensagem cobre)', () => {
-    // Documenta a decisão: httpStatus() exige número. Um '401' string só
-    // seria auth se a mensagem trouxesse unauthorized/forbidden.
-    assert.ok(!isAuthError(err('erro qualquer', { code: '401' })));
-    assert.ok(!isAuthError(err('erro qualquer', { data: { status: '401' } })));
-  });
-});
-
-describe('isProtocolVersionError', () => {
-  it('detecta -32022 (UnsupportedProtocolVersion, spec 2026-07-28)', () => {
-    assert.ok(isProtocolVersionError(err('protocol version not supported', { code: -32022 })));
-  });
-
-  it('não confunde com outros códigos JSON-RPC', () => {
-    assert.ok(!isProtocolVersionError(err('closed', { code: -32000 })));
-    assert.ok(!isProtocolVersionError(err('invalid params', { code: -32602 })));
-    assert.ok(!isProtocolVersionError(err('sem código')));
-  });
-});
-
-describe('isInputRequiredError', () => {
-  // Forma real do SDK v2 em modo manual (inputRequired.autoFulfill: false):
-  // SdkError UNSUPPORTED_RESULT_TYPE com data = { resultType, method }.
-  const inputRequired = () =>
-    err("Unsupported result type 'input_required' for tools/call", {
-      code: 'UNSUPPORTED_RESULT_TYPE',
-      data: { resultType: 'input_required', method: 'tools/call' },
+    it('detects 401/403 numeric codes', () => {
+        assert.ok(isAuthError(err('Error POSTing to endpoint: {"error":"unauthorized"}', { code: 401 })));
+        assert.ok(isAuthError(err('Forbidden', { code: 403 })));
     });
-
-  it('detecta o input_required do modo manual (dialeto 2026-07-28)', () => {
-    assert.ok(isInputRequiredError(inputRequired()));
-  });
-
-  it('outros resultType desconhecidos NÃO classificam (mensagem genérica do SDK basta)', () => {
-    assert.ok(!isInputRequiredError(err("Unsupported result type 'algo_novo' for tools/call", {
-      code: 'UNSUPPORTED_RESULT_TYPE',
-      data: { resultType: 'algo_novo', method: 'tools/call' },
-    })));
-  });
-
-  it('não confunde com erros de conexão nem com code solto', () => {
-    assert.ok(!isInputRequiredError(err('closed', { code: 'CONNECTION_CLOSED' })));
-    assert.ok(!isInputRequiredError(err('sem data', { code: 'UNSUPPORTED_RESULT_TYPE' })));
-    assert.ok(!isInputRequiredError(null));
-  });
-
-  it('input_required NÃO é erro de conexão nem fatal (não reconecta, não derruba)', () => {
-    assert.ok(!isConnectionError(inputRequired()));
-    assert.ok(!isAuthError(inputRequired()));
-    assert.ok(!isProtocolVersionError(inputRequired()));
-  });
+    it('detects 401/403 in data.status', () => {
+        assert.ok(isAuthError(err('HTTP error', { data: { status: 401 } })));
+        assert.ok(isAuthError(err('HTTP error', { data: { status: 403 } })));
+    });
+    it('does not classify other HTTP statuses as authentication errors', () => {
+        assert.ok(!isAuthError(err('Not found', { code: 404 })));
+        assert.ok(!isAuthError(err('Server error', { code: 500 })));
+        assert.ok(!isAuthError(err('HTTP error', { data: { status: 429 } })));
+    });
+    it('recognizes unauthorized and forbidden messages without a code', () => {
+        assert.ok(isAuthError(err('Request failed: Unauthorized')));
+        assert.ok(isAuthError(err('403 Forbidden at gateway')));
+    });
+    it('a remote tool mentioning API Key is not a fatal authentication error', () => {
+        assert.ok(!isAuthError(err('Tool failed: configure the tenant API Key in the console')));
+        assert.ok(!isAuthError(err('invalid api key format in tool arguments')));
+    });
+    it('handles null, empty and message-free errors', () => {
+        assert.ok(!isAuthError(null));
+        assert.ok(!isAuthError(undefined));
+        assert.ok(!isAuthError({}));
+    });
+    it('ignores string status codes without a matching authentication message', () => {
+        assert.ok(!isAuthError(err('arbitrary error', { code: '401' })));
+        assert.ok(!isAuthError(err('arbitrary error', { data: { status: '401' } })));
+    });
 });
-
+describe('isProtocolVersionError', () => {
+    it('detects UnsupportedProtocolVersion (-32022)', () => {
+        assert.ok(isProtocolVersionError(err('protocol version not supported', { code: -32022 })));
+    });
+    it('does not confuse other JSON-RPC codes', () => {
+        assert.ok(!isProtocolVersionError(err('closed', { code: -32000 })));
+        assert.ok(!isProtocolVersionError(err('invalid params', { code: -32602 })));
+        assert.ok(!isProtocolVersionError(err('without code')));
+    });
+});
+describe('isInputRequiredError', () => {
+    const inputRequired = () => err("Unsupported result type 'input_required' for tools/call", {
+        code: 'UNSUPPORTED_RESULT_TYPE',
+        data: { resultType: 'input_required', method: 'tools/call' },
+    });
+    it('detects input_required in manual mode', () => {
+        assert.ok(isInputRequiredError(inputRequired()));
+    });
+    it('does not classify other unsupported result types', () => {
+        assert.ok(!isInputRequiredError(err("Unsupported result type 'new_result' for tools/call", {
+            code: 'UNSUPPORTED_RESULT_TYPE',
+            data: { resultType: 'new_result', method: 'tools/call' },
+        })));
+    });
+    it('requires the matching code and result type', () => {
+        assert.ok(!isInputRequiredError(err('closed', { code: 'CONNECTION_CLOSED' })));
+        assert.ok(!isInputRequiredError(err('without data', { code: 'UNSUPPORTED_RESULT_TYPE' })));
+        assert.ok(!isInputRequiredError(null));
+    });
+    it('input_required is neither a connection error nor a fatal error', () => {
+        assert.ok(!isConnectionError(inputRequired()));
+        assert.ok(!isAuthError(inputRequired()));
+        assert.ok(!isProtocolVersionError(inputRequired()));
+    });
+});
 describe('isConnectionError', () => {
-  it('detecta erros de rede por code', () => {
-    for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT']) {
-      assert.ok(isConnectionError(err('net fail', { code })), `code ${code}`);
-    }
-  });
-
-  it('detecta code embrulhado em cause (undici fetch failed)', () => {
-    assert.ok(isConnectionError(err('fetch failed', { cause: err('connect', { code: 'ECONNREFUSED' }) })));
-  });
-
-  it('detecta códigos do SDK v2 (strings) e JSON-RPC (números)', () => {
-    for (const code of ['CONNECTION_CLOSED', 'SEND_FAILED', 'REQUEST_TIMEOUT', -32000, -32001]) {
-      assert.ok(isConnectionError(err('conn fail', { code })), `code ${code}`);
-    }
-  });
-
-  it('auth e versão de protocolo NUNCA são erros de conexão (não reconectar)', () => {
-    assert.ok(!isConnectionError(err('unauthorized', { code: 401 })));
-    assert.ok(!isConnectionError(err('forbidden', { data: { status: 403 } })));
-    assert.ok(!isConnectionError(err('unsupported', { code: -32022 })));
-  });
-
-  it('REGRESSÃO: sem heurísticas de STRING da era session-based', () => {
-    // O que morreu foi o casamento de substring na mensagem ('session',
-    // '404') — induzível por texto arbitrário. Um 404 REAL (código numérico,
-    // vindo do transporte) é transitório de LB/deploy e continua recuperável
-    // — ver teste de status HTTP abaixo.
-    assert.ok(!isConnectionError(err('session terminated by server')));
-    assert.ok(!isConnectionError(err('HTTP 404 Not Found'))); // string na msg não basta
-  });
-
-  it('fallback por mensagem para rede sem código', () => {
-    assert.ok(isConnectionError(err('fetch failed')));
-    assert.ok(isConnectionError(err('socket hang up')));
-    assert.ok(isConnectionError(err('The operation was aborted')));
-  });
-
-  it('status HTTP transitórios de LB/CDN/deploy são recuperáveis', () => {
-    // Substitui de forma principiada o antigo casamento da string '404':
-    // janela de deploy (404), nginx (502), Cloudflare (503), gateway (504).
-    for (const status of [404, 408, 502, 503, 504]) {
-      assert.ok(isConnectionError(err('html do LB', { code: status })), `v1 code ${status}`);
-      assert.ok(isConnectionError(err('html do LB', { data: { status } })), `v2 data.status ${status}`);
-    }
-    // 500 do próprio server não é transitório de infra — propaga ao host.
-    assert.ok(!isConnectionError(err('Internal Server Error', { code: 500 })));
-  });
-
-  it('sobrevive a erro nulo/vazio', () => {
-    assert.ok(!isConnectionError(null));
-    assert.ok(!isConnectionError({}));
-  });
+    it('detects network error codes', () => {
+        for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT']) {
+            assert.ok(isConnectionError(err('net fail', { code })), `code ${code}`);
+        }
+    });
+    it('detects a code nested in the cause', () => {
+        assert.ok(isConnectionError(err('fetch failed', { cause: err('connect', { code: 'ECONNREFUSED' }) })));
+    });
+    it('detects SDK string codes and JSON-RPC numeric codes', () => {
+        for (const code of ['CONNECTION_CLOSED', 'SEND_FAILED', 'REQUEST_TIMEOUT', -32000, -32001]) {
+            assert.ok(isConnectionError(err('conn fail', { code })), `code ${code}`);
+        }
+    });
+    it('does not reconnect on authentication or protocol-version errors', () => {
+        assert.ok(!isConnectionError(err('unauthorized', { code: 401 })));
+        assert.ok(!isConnectionError(err('forbidden', { data: { status: 403 } })));
+        assert.ok(!isConnectionError(err('unsupported', { code: -32022 })));
+    });
+    it('does not infer connection loss from unrelated session messages', () => {
+        assert.ok(!isConnectionError(err('session terminated by server')));
+        assert.ok(!isConnectionError(err('HTTP 404 Not Found')));
+    });
+    it('recognizes network messages without a code', () => {
+        assert.ok(isConnectionError(err('fetch failed')));
+        assert.ok(isConnectionError(err('socket hang up')));
+        assert.ok(isConnectionError(err('The operation was aborted')));
+    });
+    it('recognizes transient gateway HTTP statuses', () => {
+        for (const status of [404, 408, 502, 503, 504]) {
+            assert.ok(isConnectionError(err('gateway HTML', { code: status })), `v1 code ${status}`);
+            assert.ok(isConnectionError(err('gateway HTML', { data: { status } })), `v2 data.status ${status}`);
+        }
+        assert.ok(!isConnectionError(err('Internal Server Error', { code: 500 })));
+    });
+    it('handles null and empty errors', () => {
+        assert.ok(!isConnectionError(null));
+        assert.ok(!isConnectionError({}));
+    });
 });
-
 describe('isTimeoutError', () => {
-  it('detecta REQUEST_TIMEOUT (SDK v2) e -32001 (JSON-RPC)', () => {
-    assert.ok(isTimeoutError(err('Request timed out', { code: 'REQUEST_TIMEOUT', data: { timeout: 300000 } })));
-    assert.ok(isTimeoutError(err('Request timed out', { code: -32001 })));
-  });
-
-  it('não confunde timeout com queda de conexão nem com erro fatal', () => {
-    assert.ok(!isTimeoutError(err('closed', { code: 'CONNECTION_CLOSED' })));
-    assert.ok(!isTimeoutError(err('unauthorized', { code: 401 })));
-    assert.ok(!isTimeoutError(err('gateway timeout', { code: 504 }))); // 504 é do LB, não do request
-    assert.ok(!isTimeoutError(null));
-  });
-
-  it('continua sendo erro de conexão para a sonda de keepalive', () => {
-    // Separação deliberada: o withRetry NÃO reconecta em timeout (o request
-    // morreu, a conexão não), mas o keepalive — que é a sonda de saúde —
-    // trata timeout como sintoma de queda e reconecta.
-    assert.ok(isConnectionError(err('Request timed out', { code: 'REQUEST_TIMEOUT' })));
-  });
+    it('detects REQUEST_TIMEOUT and -32001', () => {
+        assert.ok(isTimeoutError(err('Request timed out', { code: 'REQUEST_TIMEOUT', data: { timeout: 300000 } })));
+        assert.ok(isTimeoutError(err('Request timed out', { code: -32001 })));
+    });
+    it('distinguishes timeouts from connection and fatal errors', () => {
+        assert.ok(!isTimeoutError(err('closed', { code: 'CONNECTION_CLOSED' })));
+        assert.ok(!isTimeoutError(err('unauthorized', { code: 401 })));
+        assert.ok(!isTimeoutError(err('gateway timeout', { code: 504 })));
+        assert.ok(!isTimeoutError(null));
+    });
+    it('classifies timeouts as connection errors for keepalive probes', () => {
+        assert.ok(isConnectionError(err('Request timed out', { code: 'REQUEST_TIMEOUT' })));
+    });
 });
-
 describe('resolveCallTimeoutMs', () => {
-  const DEFAULT = 300_000;
-
-  it('default de 300s acima do maior deadline do server (async 240s)', () => {
-    assert.equal(resolveCallTimeoutMs(undefined), DEFAULT);
-    assert.equal(resolveCallTimeoutMs(''), DEFAULT);
-    assert.equal(resolveCallTimeoutMs(null), DEFAULT);
-    assert.ok(DEFAULT > 240_000, 'o server precisa ganhar a corrida e entregar o TURN_TIMEOUT');
-  });
-
-  it('aceita override numérico válido', () => {
-    assert.equal(resolveCallTimeoutMs('600000'), 600_000);
-    assert.equal(resolveCallTimeoutMs(90_000), 90_000);
-  });
-
-  it('clampa fora de faixa com aviso — piso de 1s pega o typo de SEGUNDOS', () => {
-    const avisos = [];
-    const warn = (m) => avisos.push(m);
-    // '300' pensando em segundos mataria todo tools/call em 300 ms, culpando
-    // o server por um timeout que é do config.
-    assert.equal(resolveCallTimeoutMs('300', warn), 1_000);
-    assert.ok(avisos[0].includes('MILISSEGUNDOS'), 'o aviso precisa dizer a unidade');
-  });
-
-  it('clampa o teto em 30 min — acima de 2^31 ms o setTimeout dispara na hora', () => {
-    const avisos = [];
-    const warn = (m) => avisos.push(m);
-    assert.equal(resolveCallTimeoutMs('999999999999', warn), 1_800_000);
-    assert.equal(resolveCallTimeoutMs(String(2 ** 31), warn), 1_800_000);
-    assert.equal(avisos.length, 2);
-  });
-
-  it('valor inválido cai no default com aviso, sem derrubar o boot', () => {
-    const avisos = [];
-    const warn = (m) => avisos.push(m);
-    for (const raw of ['abc', '0', '-1', 'NaN']) {
-      assert.equal(resolveCallTimeoutMs(raw, warn), DEFAULT, `raw ${raw}`);
-    }
-    assert.equal(avisos.length, 4, 'todo valor inválido deve avisar');
-    assert.ok(avisos[0].includes('ZIHIN_MCP_CALL_TIMEOUT_MS'));
-  });
+    const DEFAULT = 300000;
+    it('uses a 300s default above the server deadline', () => {
+        assert.equal(resolveCallTimeoutMs(undefined), DEFAULT);
+        assert.equal(resolveCallTimeoutMs(''), DEFAULT);
+        assert.equal(resolveCallTimeoutMs(null), DEFAULT);
+        assert.ok(DEFAULT > 240000, 'the server must be able to return TURN_TIMEOUT first');
+    });
+    it('accepts valid numeric overrides', () => {
+        assert.equal(resolveCallTimeoutMs('600000'), 600000);
+        assert.equal(resolveCallTimeoutMs(90000), 90000);
+    });
+    it('clamps values below one second and warns about units', () => {
+        const warnings = [];
+        const warn = (m) => warnings.push(m);
+        assert.equal(resolveCallTimeoutMs('300', warn), 1000);
+        assert.ok(warnings[0].includes('MILLISECONDS'), 'the warning must state the unit');
+    });
+    it('clamps the maximum to avoid timer overflow', () => {
+        const warnings = [];
+        const warn = (m) => warnings.push(m);
+        assert.equal(resolveCallTimeoutMs('999999999999', warn), 1800000);
+        assert.equal(resolveCallTimeoutMs(String(2 ** 31), warn), 1800000);
+        assert.equal(warnings.length, 2);
+    });
+    it('uses the default and warns for invalid values', () => {
+        const warnings = [];
+        const warn = (m) => warnings.push(m);
+        for (const raw of ['abc', '0', '-1', 'NaN']) {
+            assert.equal(resolveCallTimeoutMs(raw, warn), DEFAULT, `raw ${raw}`);
+        }
+        assert.equal(warnings.length, 4, 'every invalid value must produce a warning');
+        assert.ok(warnings[0].includes('ZIHIN_MCP_CALL_TIMEOUT_MS'));
+    });
 });

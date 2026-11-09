@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    name: Testes
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,21 +20,16 @@ jobs:
           node-version: '20'
 
       - run: npm ci
+      - run: npm run check:publication
 
-      # NÃO é a barreira antes do npm publish: no fluxo canary a publicação é
-      # local e manual, e a tag v* só é empurrada depois — o gate de verdade é
-      # o `REQUIRE_INTEGRATION=1 npm test` LOCAL, antes do publish. Aqui a
-      # suíte roda de novo como registro no marco da release (duas chamadas
-      # reais a chat_with_agent por execução). REQUIRE_INTEGRATION=1 garante
-      # que secret ausente falha em vez de pular silenciosamente.
-      - name: Testes de integração
+      - name: Live integration tests
         run: npm test
         env:
           ZIHIN_API_KEY: ${{ secrets.ZIHIN_API_KEY }}
           REQUIRE_INTEGRATION: '1'
 
   publish:
-    name: Publicar no npm
+    name: Publish to npm
     needs: [test]
     runs-on: ubuntu-latest
     steps:
@@ -46,17 +41,13 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
+      - run: npm run check:publication
 
-      # Fluxo canary (ago/2026): a publicação real é MANUAL
-      # (npm publish --tag next com passkey; tokens bypass-2FA não publicam
-      # mais desde 28/07/2026). A tag v* é empurrada DEPOIS, como marco +
-      # reexecução da integração. Se a versão já está no npm, este job vira no-op
-      # verde em vez de falhar com "cannot publish over existing version".
-      - name: Publicar no npm (skip se versão já publicada)
+      - name: Publish package if the version is new
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if npm view "@zihin/mcp-server@$VERSION" version >/dev/null 2>&1; then
-            echo "Versão $VERSION já publicada (canary manual) — nada a fazer."
+            echo "Version $VERSION is already published."
           else
             npm publish --access public
           fi
