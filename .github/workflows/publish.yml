@@ -2,27 +2,46 @@ name: Publish to npm
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to publish; leave empty to validate only'
+        required: false
+        type: string
 
 permissions:
   contents: read
+
+concurrency:
+  group: publish-${{ inputs.release_tag || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
+          node-version: '22'
+      - name: Validate release tag and ancestry
+        if: github.ref_type == 'tag' || inputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          VERSION=$(node -p "require('./package.json').version")
+          test "$RELEASE_TAG" = "v$VERSION"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          git merge-base --is-ancestor HEAD origin/main
       - run: npm ci
       - run: npm run check:publication
-
       - name: Live integration tests
         run: npm test
         env:
@@ -32,26 +51,33 @@ jobs:
   publish:
     name: Publish to npm
     needs: [test]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.ref_type == 'tag' || inputs.release_tag != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-
+      - name: Install npm with Trusted Publishing support
+        run: npm install -g npm@11
       - run: npm ci
       - run: npm run check:publication
-
       - name: Publish package if the version is new
+        env:
+          # A manual retry checks out a historical tag, not the workflow commit.
+          # Avoid attesting to the workflow commit as the package source in that case.
+          PROVENANCE: ${{ github.event_name == 'push' && 'true' || 'false' }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if npm view "@zihin/mcp-server@$VERSION" version >/dev/null 2>&1; then
             echo "Version $VERSION is already published."
           else
-            npm publish --access public
+            npm publish --access public --provenance="$PROVENANCE"
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
