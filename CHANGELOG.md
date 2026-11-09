@@ -1,6 +1,10 @@
 # Changelog
 
-## 2.2.3
+## 2.2.4
+
+- Detect integration-test readiness through the MCP handshake instead of translated diagnostics.
+
+## 2.2.3 (not published)
 
 - Use English documentation, bundled skills and client diagnostics.
 - Limit package contents to runtime files, user documentation and required metadata.

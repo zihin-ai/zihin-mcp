@@ -20,7 +20,7 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
         let buffer = '';
         let settled = false;
-        const timeout = setTimeout(() => finish(new Error(`Timeout aguardando resposta de "${method}"`)), timeoutMs);
+        const timeout = setTimeout(() => finish(new Error(`Timed out waiting for a response from "${method}"`)), timeoutMs);
         function finish(error, value) {
             if (settled)
                 return;
@@ -49,7 +49,7 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
             buffer = lines[lines.length - 1];
         }
         function onExit(code, signal) {
-            const message = `Proxy encerrou durante "${method}" (code=${code}, signal=${signal}) — nenhuma resposta recebida.`;
+            const message = `Proxy exited during "${method}" (code=${code}, signal=${signal}) — no response received.`;
             console.error(message);
             finish(new Error(message));
         }
@@ -57,43 +57,6 @@ function sendRequest(proc, method, params = {}, id = 1, timeoutMs = 15000) {
         proc.once('exit', onExit);
         const request = JSON.stringify({ jsonrpc: '2.0', id, method, params });
         proc.stdin.write(request + '\n');
-    });
-}
-function waitForReady(proc) {
-    return new Promise((resolve, reject) => {
-        let stderrBuf = '';
-        let settled = false;
-        const timeout = setTimeout(() => finish(new Error(`Timeout aguardando proxy ficar pronto.${formatStderr(stderrBuf)}`)), 20000);
-        function finish(error, value) {
-            if (settled)
-                return;
-            settled = true;
-            clearTimeout(timeout);
-            proc.stderr.removeListener('data', onData);
-            proc.removeListener('exit', onExit);
-            proc.removeListener('error', onError);
-            if (!error) {
-                resolve(value);
-                return;
-            }
-            console.error(error.message);
-            setTimeout(() => { }, 50);
-            reject(error);
-        }
-        function onData(chunk) {
-            stderrBuf += chunk.toString();
-            if (stderrBuf.includes('Pronto!'))
-                finish(null, stderrBuf);
-        }
-        function onExit(code, signal) {
-            finish(new Error(`Proxy exited before it was ready (code=${code}, signal=${signal}).${formatStderr(stderrBuf)}`));
-        }
-        function onError(error) {
-            finish(new Error(`Failed to start the proxy: ${error.message}`));
-        }
-        proc.stderr.on('data', onData);
-        proc.once('exit', onExit);
-        proc.once('error', onError);
     });
 }
 function formatStderr(stderrBuf) {
@@ -150,11 +113,13 @@ describe('proxy stdio ↔ HTTP', () => {
     let bootStderr = '';
     before(async () => {
         proc = spawnProxy({ ZIHIN_API_KEY: API_KEY });
-        bootStderr = await waitForReady(proc);
+        proc.stderr.on('data', (chunk) => { bootStderr += chunk.toString(); });
         const initResult = await request('initialize', {
             protocolVersion: STDIO_PROTOCOL_VERSION,
             capabilities: {},
             clientInfo: { name: 'test-runner', version: '1.0.0' },
+        }, 30000).catch((error) => {
+            throw new Error(`${error.message}${formatStderr(bootStderr)}`, { cause: error });
         });
         assert.ok(initResult.result, 'initialize returns a result');
         assert.ok(initResult.result.serverInfo, 'serverInfo is present');
@@ -172,14 +137,14 @@ describe('proxy stdio ↔ HTTP', () => {
             const res = await request('tools/list', {});
             assert.ok(res.result, 'result is present');
             assert.ok(Array.isArray(res.result.tools), 'tools is an array');
-            assert.ok(res.result.tools.length >= 60, `esperado >= 60 tools, recebeu ${res.result.tools.length}`);
+            assert.ok(res.result.tools.length >= 60, `expected at least 60 tools, received ${res.result.tools.length}`);
         });
         it('each tool includes name, description and inputSchema', async () => {
             const res = await request('tools/list', {});
             for (const tool of res.result.tools) {
-                assert.ok(tool.name, `tool sem name: ${JSON.stringify(tool)}`);
-                assert.ok(tool.description, `tool "${tool.name}" sem description`);
-                assert.ok(tool.inputSchema, `tool "${tool.name}" sem inputSchema`);
+                assert.ok(tool.name, `tool without name: ${JSON.stringify(tool)}`);
+                assert.ok(tool.description, `tool "${tool.name}" without description`);
+                assert.ok(tool.inputSchema, `tool "${tool.name}" without inputSchema`);
                 assert.equal(typeof tool.inputSchema, 'object', `inputSchema of "${tool.name}" must be a JSON Schema object`);
             }
         });
@@ -276,10 +241,10 @@ describe('proxy stdio ↔ HTTP', () => {
             }
             const schemas = uris.filter(u => u.startsWith('zihin://schemas/'));
             const skills = uris.filter(u => u.startsWith('zihin://skills/'));
-            assert.ok(schemas.length >= 10, `esperado >= 10 contratos formais, recebeu ${schemas.length}`);
-            assert.ok(skills.length >= 6, `esperado >= 6 skills, recebeu ${skills.length}`);
-            const originais = uris.filter(u => !u.startsWith('zihin://schemas/') && !u.startsWith('zihin://skills/'));
-            assert.deepEqual(originais.sort(), ['zihin://agents', 'zihin://models', 'zihin://schema-templates'], 'unexpected resource category outside schemas/ and skills/');
+            assert.ok(schemas.length >= 10, `expected at least 10 formal schemas, received ${schemas.length}`);
+            assert.ok(skills.length >= 6, `expected at least 6 skills, received ${skills.length}`);
+            const baseResources = uris.filter(u => !u.startsWith('zihin://schemas/') && !u.startsWith('zihin://skills/'));
+            assert.deepEqual(baseResources.sort(), ['zihin://agents', 'zihin://models', 'zihin://schema-templates'], 'unexpected resource category outside schemas/ and skills/');
         });
         it('each resource includes name, uri and description', async () => {
             const res = await request('resources/list', {});
@@ -287,7 +252,7 @@ describe('proxy stdio ↔ HTTP', () => {
                 assert.ok(r.name, 'resource without name');
                 assert.ok(r.uri, 'resource without URI');
                 assert.ok(r.uri.startsWith('zihin://'), `URI must start with zihin://; received: ${r.uri}`);
-                assert.ok(r.description, `resource "${r.name}" sem description`);
+                assert.ok(r.description, `resource "${r.name}" without description`);
             }
         });
         it('resources/read zihin://models returns the model catalog', async () => {
@@ -333,8 +298,8 @@ describe('proxy stdio ↔ HTTP', () => {
             const res = await request('prompts/list', {});
             for (const p of res.result.prompts) {
                 assert.ok(p.name, 'prompt without name');
-                assert.ok(p.description, `prompt "${p.name}" sem description`);
-                assert.ok(Array.isArray(p.arguments), `prompt "${p.name}" sem arguments`);
+                assert.ok(p.description, `prompt "${p.name}" without description`);
+                assert.ok(Array.isArray(p.arguments), `prompt "${p.name}" without arguments`);
             }
         });
         it('prompts/get setup-agent returns templated messages', async () => {
@@ -380,7 +345,7 @@ describe('proxy stdio ↔ HTTP', () => {
             });
             const instructions = res.result.instructions;
             assert.equal(typeof instructions, 'string', 'instructions is a string');
-            assert.ok(instructions.length > 100, `instructions substancial (recebeu ${instructions?.length ?? 0} chars)`);
+            assert.ok(instructions.length > 100, `substantial instructions (received ${instructions?.length ?? 0} chars)`);
         });
         it('capabilities declares tools, resources and prompts', async () => {
             const res = await request('initialize', {
