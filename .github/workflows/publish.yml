@@ -115,8 +115,10 @@ jobs:
       - name: Exchange the workflow identity without publishing
         run: |
           # A dry run performs the OIDC token exchange and stops before the upload.
+          # Its exit status is not the result: it also fails when the version on the
+          # branch is already published, after the exchange has taken place.
           LOGS="$RUNNER_TEMP/npm-trust-logs"
-          npm publish --dry-run --access public --provenance=false --logs-dir "$LOGS"
+          npm publish --dry-run --access public --provenance=false --logs-dir "$LOGS" || true
           if grep -qsh ' oidc Successfully retrieved and set token' "$LOGS"/*.log; then
             echo "npm accepted this workflow as a trusted publisher of @zihin/mcp-server."
           else
