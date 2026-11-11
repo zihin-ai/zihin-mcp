@@ -1,3 +1,9 @@
+# Publishes with npm Trusted Publishing (OIDC); no npm token is stored in this repository.
+# One-time setup on npmjs.com: package @zihin/mcp-server -> Settings -> Trusted Publisher ->
+# GitHub Actions: organization or user "zihin-ai", repository "zihin-mcp", workflow filename
+# "publish.yml", no environment, with "npm publish" allowed. All fields are case-sensitive.
+# npm does not validate the entry when it is saved: run this workflow manually with an empty
+# release_tag to check it without publishing.
 name: Publish to npm
 
 on:
@@ -78,6 +84,43 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if npm view "@zihin/mcp-server@$VERSION" version >/dev/null 2>&1; then
             echo "Version $VERSION is already published."
+            exit 0
+          fi
+          LOGS="$RUNNER_TEMP/npm-publish-logs"
+          if ! npm publish --access public --provenance="$PROVENANCE" --logs-dir "$LOGS"; then
+            if ! grep -qsh ' oidc Successfully retrieved and set token' "$LOGS"/*.log; then
+              grep -sh ' oidc ' "$LOGS"/*.log | sed 's/^[0-9]* //' || true
+              echo "::error::npm rejected the Trusted Publishing token exchange and fell back to a placeholder token. An E404 on publish is then an authorization failure, not a missing package. Check the trusted publisher entry described at the top of this workflow."
+            fi
+            exit 1
+          fi
+
+  trust:
+    name: Verify npm trusted publisher
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install npm with Trusted Publishing support
+        run: npm install -g npm@11
+      - run: npm ci
+      - name: Exchange the workflow identity without publishing
+        run: |
+          # A dry run performs the OIDC token exchange and stops before the upload.
+          LOGS="$RUNNER_TEMP/npm-trust-logs"
+          npm publish --dry-run --access public --provenance=false --logs-dir "$LOGS"
+          if grep -qsh ' oidc Successfully retrieved and set token' "$LOGS"/*.log; then
+            echo "npm accepted this workflow as a trusted publisher of @zihin/mcp-server."
           else
-            npm publish --access public --provenance="$PROVENANCE"
+            grep -sh ' oidc ' "$LOGS"/*.log | sed 's/^[0-9]* //' || true
+            echo "::error::npm did not accept this workflow as a trusted publisher of @zihin/mcp-server. Check the trusted publisher entry described at the top of this workflow."
+            exit 1
           fi
