@@ -1,7 +1,9 @@
 {
   "name": "zihin",
   "description": "Connect Claude Code to Zihin.ai to work with hosted AI agents, tools, triggers and processes. Includes platform skills.",
-  "version": "2.2.4",
+  "version": "2.2.5",
+  "icon": "./.claude-plugin/icon.png",
+  "privacyPolicyUrl": "https://zihin.ai/en/privacy",
   "author": {
     "name": "Zihin",
     "url": "https://zihin.ai"
