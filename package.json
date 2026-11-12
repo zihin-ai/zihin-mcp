@@ -21,6 +21,7 @@
     "src/index.js",
     "src/install-skills.js",
     "plugin/.claude-plugin/plugin.json",
+    "plugin/.claude-plugin/icon.png",
     "plugin/.mcp.json",
     "plugin/README.md",
     "plugin/skills/*/SKILL.md",
