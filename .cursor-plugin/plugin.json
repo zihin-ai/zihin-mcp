@@ -1,0 +1,28 @@
+{
+  "name": "zihin",
+  "version": "1.0.0",
+  "description": "Connect to Zihin.ai to work with hosted AI agents, tools, triggers and processes. Includes platform skills.",
+  "author": { "name": "Zihin", "url": "https://zihin.ai" },
+  "homepage": "https://docs.zihin.ai/integrations/mcp-server",
+  "repository": "https://github.com/zihin-ai/zihin-mcp",
+  "license": "MIT",
+  "logo": "plugin/.claude-plugin/icon.png",
+  "skills": "./plugin/skills/",
+  "mcpServers": {
+    "zihin": {
+      "url": "https://llm.zihin.ai/mcp",
+      "headers": { "X-Api-Key": "${ZIHIN_API_KEY}" }
+    }
+  },
+  "variables": {
+    "type": "object",
+    "properties": {
+      "ZIHIN_API_KEY": {
+        "type": "string",
+        "title": "Zihin API key",
+        "description": "Your Zihin API key. Available operations depend on its permissions."
+      }
+    },
+    "required": ["ZIHIN_API_KEY"]
+  }
+}
