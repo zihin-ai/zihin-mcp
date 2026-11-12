@@ -15,11 +15,19 @@ test('plugin connects remotely without a local process or embedded credential', 
     for (const server of servers) {
         assert.equal(server.type, 'http');
         assert.equal(server.url, 'https://llm.zihin.ai/mcp');
-        assert.deepEqual(server.headers, { 'X-Api-Key': '${ZIHIN_API_KEY}' });
+        assert.deepEqual(server.headers, { 'X-Api-Key': '${user_config.api_key}' });
         for (const field of ['command', 'args', 'env', 'headersHelper']) {
             assert.equal(Object.hasOwn(server, field), false, `Unexpected local process setting: ${field}`);
         }
     }
+});
+test('plugin credential is required, sensitive and has no bundled default', () => {
+    const option = json('plugin/.claude-plugin/plugin.json').userConfig.api_key;
+    assert.equal(option.type, 'string');
+    assert.equal(option.required, true);
+    assert.equal(option.sensitive, true);
+    assert.ok(option.title && option.description);
+    assert.equal(Object.hasOwn(option, 'default'), false);
 });
 test('plugin icon satisfies directory PNG dimensions and size limits', () => {
     const plugin = json('plugin/.claude-plugin/plugin.json');

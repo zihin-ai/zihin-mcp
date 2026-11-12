@@ -1,7 +1,16 @@
 {
   "name": "zihin",
   "description": "Connect Claude Code to Zihin.ai to work with hosted AI agents, tools, triggers and processes. Includes platform skills.",
-  "version": "2.2.5",
+  "version": "2.2.6",
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Zihin API key",
+      "description": "Your Zihin API key. Available operations depend on its permissions.",
+      "required": true,
+      "sensitive": true
+    }
+  },
   "icon": "./.claude-plugin/icon.png",
   "privacyPolicyUrl": "https://zihin.ai/en/privacy",
   "author": {
