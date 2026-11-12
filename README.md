@@ -40,7 +40,7 @@ Available tools and resources depend on your account and key permissions.
 /plugin install zihin@zihin
 ```
 
-Set `ZIHIN_API_KEY` in the environment used to start Claude Code. The plugin connects
+Enter your key in the plugin's required, sensitive **Zihin API key** option. The plugin connects
 directly to `https://llm.zihin.ai/mcp` over HTTP with the `X-Api-Key` header; it does
 not start the npm proxy. Plugin versions advance independently of this package.
 See [the plugin guide](plugin/README.md) for updates and configuration.

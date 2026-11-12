@@ -11,10 +11,13 @@ Install from the official marketplace:
 /plugin install zihin --marketplace zihin-ai/zihin-mcp
 ```
 
-Set `ZIHIN_API_KEY` before starting Claude Code. The client sends this key in the
-`X-Api-Key` header.
-No local MCP process or Node.js installation is required by this plugin. Keep your key
-in a secret store or environment configuration, never in Git.
+When enabling the plugin, enter your Zihin API key in the **Zihin API key** option.
+The option is required and sensitive: Claude stores it in its secure credential store
+and sends it in the `X-Api-Key` header. To change the key, open `/plugin`, select Zihin
+under Installed, and choose **Configure options**. Existing users must configure this
+option after updating; the plugin no longer reads `ZIHIN_API_KEY` from the environment.
+No local MCP process or Node.js installation is required by this plugin. Never commit
+your key to Git or include it in prompts.
 
 Update the marketplace and plugin, then restart Claude Code and check `/mcp`:
 

@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://llm.zihin.ai/mcp",
       "headers": {
-        "X-Api-Key": "${ZIHIN_API_KEY}"
+        "X-Api-Key": "${user_config.api_key}"
       }
     }
   }
