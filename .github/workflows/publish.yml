@@ -26,6 +26,8 @@ concurrency:
 jobs:
   test:
     name: Tests
+    # An identity-only diagnostic must not invoke hosted agents or consume credits.
+    if: github.ref_type == 'tag' || inputs.release_tag != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -120,7 +122,7 @@ jobs:
           LOGS="$RUNNER_TEMP/npm-trust-logs"
           npm publish --dry-run --access public --provenance=false --logs-dir "$LOGS" || true
           if grep -qsh ' oidc Successfully retrieved and set token' "$LOGS"/*.log; then
-            echo "npm accepted this workflow as a trusted publisher of @zihin/mcp-server."
+            echo "npm accepted the OIDC identity for @zihin/mcp-server. Publication permissions, artifact checks, and release tests still apply."
           else
             grep -sh ' oidc ' "$LOGS"/*.log | sed 's/^[0-9]* //' || true
             echo "::error::npm did not accept this workflow as a trusted publisher of @zihin/mcp-server. Check the trusted publisher entry described at the top of this workflow."
