@@ -45,6 +45,14 @@ directly to `https://llm.zihin.ai/mcp` over HTTP with the `X-Api-Key` header; it
 not start the npm proxy. Plugin versions advance independently of this package.
 See [the plugin guide](plugin/README.md) for updates and configuration.
 
+## Cursor plugin
+
+The Cursor plugin connects directly to the hosted MCP endpoint and includes the same
+platform skills. Configure the required `ZIHIN_API_KEY` variable under **Plugins → Configure**.
+The repository contains only the variable declaration; never commit the key or put it
+in a prompt. The API key determines which operations are available. Agent execution
+can consume credits and perform external actions.
+
 ## Install skills
 
 ```sh
