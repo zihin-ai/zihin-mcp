@@ -18,8 +18,12 @@ organization. The connection then acts with your role in that organization.
 - **Fewer tools than an API key.** Operations that create credentials or persistent access,
   such as API keys, secrets, triggers or MCP servers, stay in the Zihin console.
 - **Revoking.** Disconnect an assistant under **My assistants** in the Zihin console.
-  Disconnecting an assistant that signed in this way signs it out in all of your
-  organizations, not only the current one.
+  For an assistant identified by a public client URL (claude.ai, ChatGPT, Codex, or
+  Claude Code without a client of your own), disconnecting signs it out in all of your
+  organizations, not only the current one. Other clients follow different rules: a client
+  registered for you (such as the Claude Code command with `--client-id`, created per
+  person and organization) is deleted, and a client shared by several connections only
+  has the revoked connection cut. See [what revoking reaches](https://docs.zihin.ai/integrations/mcp-server#connected-assistants).
 
 See [Sign in](https://docs.zihin.ai/integrations/mcp-server#sign-in) and
 [Connected assistants](https://docs.zihin.ai/integrations/mcp-server#connected-assistants).
