@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.0
+
+- Claude Code plugin: sign in with your Zihin account at `https://llm.zihin.ai/mcp`. The
+  API key option is now optional; leave it empty to sign in, or enter a key to connect as
+  that key. Each connected assistant works with one organization.
+- MCP Registry: the hosted remote lists `X-Api-Key` as optional, because clients can sign in instead.
+- Bundled skills match the hosted server, including the new `zihin-processos` guide and
+  the shared integrations section of `zihin-governanca-e-operacao`.
+- The plugin and the npm package share version 2.3.0. The proxy still requires an API key.
+
 ## 2.2.4
 
 - Detect integration-test readiness through the MCP handshake instead of translated diagnostics.

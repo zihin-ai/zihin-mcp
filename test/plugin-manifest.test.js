@@ -21,13 +21,31 @@ test('plugin connects remotely without a local process or embedded credential', 
         }
     }
 });
-test('plugin credential is required, sensitive and has no bundled default', () => {
+test('plugin API key is optional and sensitive, so sign-in is the default', () => {
     const option = json('plugin/.claude-plugin/plugin.json').userConfig.api_key;
     assert.equal(option.type, 'string');
-    assert.equal(option.required, true);
+    assert.equal(option.required, false);
     assert.equal(option.sensitive, true);
     assert.ok(option.title && option.description);
-    assert.equal(Object.hasOwn(option, 'default'), false);
+    // An empty header makes the server answer with its sign-in challenge; a bundled key would not.
+    // Cowork ignores a server whose referenced option has no default.
+    assert.equal(option.default, '');
+});
+test('plugin server has no Authorization header, so the client can sign in', () => {
+    for (const server of Object.values(json('plugin/.mcp.json').mcpServers)) {
+        const names = Object.keys(server.headers || {}).map(h => h.toLowerCase());
+        assert.equal(names.includes('authorization'), false);
+        assert.equal(Object.hasOwn(server, 'oauth'), false, 'no fixed client: each assistant registers its own');
+    }
+});
+test('plugin and package versions match', () => {
+    assert.equal(json('plugin/.claude-plugin/plugin.json').version, pkg.version);
+});
+test('registry remote accepts sign-in and an optional API key', () => {
+    const [remote] = json('server.json').remotes;
+    assert.equal(remote.url, 'https://llm.zihin.ai/mcp');
+    assert.ok(json('server.json').description.length <= 100, 'registry description limit');
+    for (const header of remote.headers || []) assert.equal(header.isRequired, false, header.name);
 });
 test('plugin icon satisfies directory PNG dimensions and size limits', () => {
     const plugin = json('plugin/.claude-plugin/plugin.json');

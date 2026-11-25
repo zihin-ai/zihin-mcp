@@ -2,12 +2,12 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "ai.zihin/mcp-server",
   "title": "Zihin",
-  "description": "Chat with your Zihin.ai agents, list them and load platform skills from any MCP client.",
+  "description": "Build, operate and chat with Zihin.ai agents. Sign in with your Zihin account or use an API key.",
   "repository": {
     "url": "https://github.com/zihin-ai/zihin-mcp",
     "source": "github"
   },
-  "version": "2.2.4",
+  "version": "2.3.0",
   "remotes": [
     {
       "type": "streamable-http",
@@ -15,8 +15,8 @@
       "headers": [
         {
           "name": "X-Api-Key",
-          "description": "Zihin API Key (zhn_live_*, zhn_test_* or zhn_dev_*), from the Zihin console",
-          "isRequired": true,
+          "description": "Optional Zihin API key (zhn_live_*, zhn_test_* or zhn_dev_*) for integrations. Without it, clients sign in with OAuth.",
+          "isRequired": false,
           "isSecret": true
         }
       ]
@@ -26,7 +26,7 @@
     {
       "registryType": "npm",
       "identifier": "@zihin/mcp-server",
-      "version": "2.2.4",
+      "version": "2.3.0",
       "transport": {
         "type": "stdio"
       },

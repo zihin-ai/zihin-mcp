@@ -63,15 +63,16 @@ test('upsertCodexBlock replaces existing blocks idempotently', () => {
     assert.equal(updated.match(/zihin-skills:start/g).length, 1, 'no duplicate blocks');
     assert.match(updated, /Existing rule/, 'content outside the block is preserved');
 });
-test('loadBundledSkills reads the six bundled skills', () => {
+test('loadBundledSkills reads the seven bundled skills', () => {
     const skills = loadBundledSkills();
-    assert.equal(skills.length, 6);
+    assert.equal(skills.length, 7);
     const names = skills.map(s => s.name).sort();
     assert.deepEqual(names, [
         'zihin-criar-agente',
         'zihin-diagnostico',
         'zihin-governanca-e-operacao',
         'zihin-mcp',
+        'zihin-processos',
         'zihin-tools-de-agente',
         'zihin-triggers-e-canais',
     ]);

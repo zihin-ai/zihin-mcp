@@ -28,3 +28,10 @@ so include the fields that must remain. Verify the effective configuration after
 Perform a real agent test only when authorized by the task: it can consume credits and
 perform the external operation. A successful validation is not a substitute for checking
 authentication, permissions and the external system's result.
+
+Endpoint defaults_from_context uses the authoritative call context, overriding model-supplied
+values when that context field exists. The model value applies only when the context has
+no value for that field.
+
+Use `update_mcp_server` to change connection settings. Supplied config replaces the
+whole object, so retain all required settings.

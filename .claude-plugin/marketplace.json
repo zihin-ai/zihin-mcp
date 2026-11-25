@@ -9,7 +9,7 @@
     {
       "name": "zihin",
       "source": "./plugin",
-      "description": "Connect to Zihin.ai through MCP and load platform skills. Requires ZIHIN_API_KEY."
+      "description": "Connect to Zihin.ai through MCP and load platform skills. Sign in with your Zihin account or use an optional API key."
     }
   ]
 }

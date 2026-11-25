@@ -1,10 +1,34 @@
 # Zihin MCP server
 
-Connect MCP clients to the [Zihin.ai](https://zihin.ai) agent platform. This package
-proxies stdio requests to the hosted MCP endpoint and includes platform skills.
-Requires Node.js 20 or later and a Zihin API key.
+Connect MCP clients to the [Zihin.ai](https://zihin.ai) agent platform. The hosted MCP
+endpoint is `https://llm.zihin.ai/mcp`. People sign in there with their Zihin account;
+integrations use an API key. This package is a stdio proxy for clients that cannot reach
+a remote server, and it includes platform skills. The proxy requires Node.js 20 or later
+and a Zihin API key.
 
-## Quick start
+## Sign in with your Zihin account
+
+Clients that support MCP authorization (OAuth) connect to `https://llm.zihin.ai/mcp`
+without an API key. On the first request the server answers `401` with its protected
+resource metadata, the client opens your browser, you sign in to Zihin and choose the
+organization. The connection then acts with your role in that organization.
+
+- **One organization per assistant.** To work in another organization, disconnect the
+  assistant and connect it again, choosing the other organization.
+- **Fewer tools than an API key.** Operations that create credentials or persistent access,
+  such as API keys, secrets, triggers or MCP servers, stay in the Zihin console.
+- **Revoking.** Disconnect an assistant under **My assistants** in the Zihin console.
+  For an assistant identified by a public client URL (claude.ai, ChatGPT, Codex, or
+  Claude Code without a client of your own), disconnecting signs it out in all of your
+  organizations, not only the current one. Other clients follow different rules: a client
+  registered for you (such as the Claude Code command with `--client-id`, created per
+  person and organization) is deleted, and a client shared by several connections only
+  has the revoked connection cut. See [what revoking reaches](https://docs.zihin.ai/integrations/mcp-server#connected-assistants).
+
+See [Sign in](https://docs.zihin.ai/integrations/mcp-server#sign-in) and
+[Connected assistants](https://docs.zihin.ai/integrations/mcp-server#connected-assistants).
+
+## Quick start (npm proxy, API key)
 
 ```sh
 ZIHIN_API_KEY=YOUR_ZIHIN_API_KEY npx -y @zihin/mcp-server
@@ -30,7 +54,8 @@ Add this entry to your MCP client's configuration:
 ```
 
 Clients with Streamable HTTP support can connect directly to
-`https://llm.zihin.ai/mcp`, using the `X-Api-Key` header.
+`https://llm.zihin.ai/mcp`, either by signing in or with the `X-Api-Key` header.
+An invalid key is rejected without a sign-in prompt; remove the header to sign in instead.
 Available tools and resources depend on your account and key permissions.
 
 ## Claude Code plugin
@@ -40,10 +65,10 @@ Available tools and resources depend on your account and key permissions.
 /plugin install zihin@zihin
 ```
 
-Enter your key in the plugin's required, sensitive **Zihin API key** option. The plugin connects
-directly to `https://llm.zihin.ai/mcp` over HTTP with the `X-Api-Key` header; it does
-not start the npm proxy. Plugin versions advance independently of this package.
-See [the plugin guide](plugin/README.md) for updates and configuration.
+The plugin connects directly to `https://llm.zihin.ai/mcp` over HTTP; it does not start the
+npm proxy. Leave the optional **Zihin API key** empty and run `/mcp` to sign in with your
+Zihin account, or enter a key to connect as that key. See [the plugin guide](plugin/README.md)
+for updates and configuration.
 
 ## Cursor plugin
 

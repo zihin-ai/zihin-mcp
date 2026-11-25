@@ -26,3 +26,7 @@ For agents that do not start, check budgets, plan quota, session controls and th
 profile. A budget limit, suspended session or consumer restriction can prevent execution.
 Use history and version comparison to identify regressions; use supported rollback tools
 when appropriate. Reproduction with `chat_with_agent` or `test_trigger` performs real work.
+
+Use `list_executions` to find a run by session, agent, outcome or trace_id.
+Use `list_agent_sessions` to find conversations and `get_consumer_profile` to inspect
+consumer controls before attempting another invocation.
