@@ -19,6 +19,15 @@ test('publication policy rejects excess files, maps, non-English text and missin
     assert.match(validateFiles(root, files, policy).join('\n'), /Source map/);
     write('index.js', 'voc\u00ea');
     assert.match(validateFiles(root, files, policy).join('\n'), /Non-English/);
+    for (const ref of ['see server-llm/mcp-server/skills', 'fixed in zihin-ai/backend-repo#841', 'zihin-other#12',
+      'set MCP_OAUTH_SOMETHING=true', 'since backend 2026.11.28']) {
+      write('index.js', ref);
+      assert.match(validateFiles(root, files, policy).join('\n'), /Internal backend reference/, ref);
+    }
+    for (const ok of ['see zihin-mcp#54 and zihin-ai/zihin-mcp#43', 'version 2.3.0', 'ZIHIN_API_KEY is required']) {
+      write('index.js', ok);
+      assert.deepEqual(validateFiles(root, files, policy), [], ok);
+    }
     write('index.js', 'export const value = 1;');
     assert.match(validateFiles(root, files.filter(x => x.path !== 'index.js'), policy).join('\n'), /Missing entry point/);
     assert.match(validateFiles(root, [...files, { path: '../outside' }], policy).join('\n'), /Unsafe/);

@@ -4,6 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const languageSignal = /(?<![\p{L}\p{N}_])(?:erro|falha|n\u00e3o|voc\u00ea|tamb\u00e9m|invoca\u00e7\u00e3o|configura\u00e7\u00e3o|n\u00facleo|usu\u00e1rio|padr\u00e3o|conex\u00e3o|fun\u00e7\u00e3o|par\u00e2metro)(?![\p{L}\p{N}_])/iu;
+// Public text must not point at the private backend: its source paths, cross-repository
+// issue references, backend environment flags or backend release versions (CalVer).
+const internalReference = /\bserver-llm\/|(?<![\w./-])(?!zihin-ai\/zihin-mcp#)[\w.-]+\/[\w.-]+#\d+|(?<![\w/-])(?!zihin-mcp#)zihin-[\w-]+#\d+|\bMCP_OAUTH_[A-Z0-9_]+|\bv?20\d\d\.(?:1[0-2]|0?[1-9])\.\d+\b/;
 const privatePath = /(^|\/)(?:\.env(?:[.-][^/]*)?|\.secrets|\.git|tests?|coverage|node_modules|CLAUDE\.md|AGENTS\.md|ORIGEM\.md|HANDOFF[^/]*)(\/|$)|\.(?:map|log|pem|key)$/i;
 
 function matches(name, glob) {
@@ -30,6 +33,7 @@ export function validateFiles(root, files, policy) {
     if (/\.(png|jpe?g|ico)$/i.test(name)) continue;
     const content = readFileSync(resolved, 'utf8');
     if (languageSignal.test(content)) errors.push(`Non-English text requires review: ${name}`);
+    if (internalReference.test(content)) errors.push(`Internal backend reference: ${name}`);
     if (/sourceMappingURL\s*=/.test(content)) errors.push(`Source map reference: ${name}`);
     if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:ghp_|npm_)[a-zA-Z0-9]{30,}\b/.test(content)) {
       errors.push(`Credential pattern: ${name}`);
